@@ -29,7 +29,7 @@
 </aside>
 
 <main class="main">
-  <div class="top"><div><h1 id="title" style="margin:0">Conexão</h1><small>LIKE Estoque V28 • Operação rápida</small></div><div><span id="syncWarnTop" class="status ok">Proteção ativa</span><button id="reload" class="ok">Recarregar dados</button><button id="logout" class="bad">Sair</button></div></div>
+  <div class="top"><div><h1 id="title" style="margin:0">Conexão</h1><small>LIKE Estoque V29 • Edição inline</small></div><div><span id="syncWarnTop" class="status ok">Proteção ativa</span><button id="reload" class="ok">Recarregar dados</button><button id="logout" class="bad">Sair</button></div></div>
 
   <section id="p-login" class="page on"><div class="card"><h2>Conectar ao Supabase</h2><p class="small">Login dentro do layout normal do sistema.</p><div class="grid"><input id="url" placeholder="Project URL"><input id="key" placeholder="Anon/Public key"><input id="email" placeholder="E-mail do usuário Supabase"><input id="pass" type="password" placeholder="Senha"></div><button id="save" class="pri">Salvar configuração</button><button id="login" class="ok">Entrar e carregar dados</button><div id="loginMsg" class="msg">Aguardando login.</div></div></section>
 
@@ -45,15 +45,16 @@
 
   <section id="p-manut" class="page"><div class="card"><h2>Manutenção/Teste</h2><select id="manEq"></select><select id="manRes"><option>Aprovado - voltar ao estoque</option><option>Reprovado - manter manutenção</option><option>Enviar garantia</option><option>Inutilizar</option></select><textarea id="manObs" placeholder="Laudo/obs"></textarea><button id="manBtn" class="pri">Registrar resultado</button><div id="manMsg" class="msg"></div></div></section>
 
-  <section id="p-estoque" class="page"><div class="card"><h2>Estoque central</h2><div class="tbl"><table><thead><tr><th>Código</th><th>Modelo</th><th>MAC/SN</th><th>Patrimônio</th><th>Custo</th><th>Ações</th></tr></thead><tbody id="estT"></tbody></table></div></div></section>
+  <section id="p-estoque" class="page"><div class="card"><h2>Estoque central</h2><p class="small">Edite direto na tabela e clique em Salvar.</p><div class="tbl"><table><thead><tr><th>Código</th><th>Modelo</th><th>MAC/SN</th><th>Patrimônio</th><th>Custo</th><th>Ações</th></tr></thead><tbody id="estT"></tbody></table></div></div></section>
   <section id="p-tecnico" class="page"><div class="card"><h2>Estoque por técnico</h2><p class="small">Mostra os equipamentos em posse de cada técnico.</p></div><div id="techStockBox"></div></section>
-  <section id="p-equipamentos" class="page"><div class="card"><h2>Equipamentos cadastrados</h2><input id="f" placeholder="Filtrar equipamento"><div class="tbl"><table><thead><tr><th>Código</th><th>Tipo</th><th>Marca</th><th>Modelo</th><th>MAC</th><th>SN</th><th>Status</th><th>Local</th><th>Técnico</th><th>Origem</th><th>Ações</th></tr></thead><tbody id="eqT"></tbody></table></div></div></section>
+  <section id="p-equipamentos" class="page"><div class="card"><h2>Equipamentos cadastrados</h2><p class="small">Agora a edição é na própria tabela: altere status, local, técnico, cliente, OS ou custo e clique em Salvar.</p><input id="f" placeholder="Filtrar equipamento"><div class="tbl"><table><thead><tr><th>Código</th><th>Tipo</th><th>Marca</th><th>Modelo</th><th>MAC</th><th>SN</th><th>Status</th><th>Local</th><th>Técnico</th><th>Cliente/OS/Custo</th><th>Ações</th></tr></thead><tbody id="eqT"></tbody></table></div></div></section>
   <section id="p-cadastros" class="page"><div class="grid"><div class="card"><h2>Produto / Modelo</h2><input id="mmTipo" placeholder="Tipo"><input id="mmMarca" placeholder="Marca"><input id="mmModelo" placeholder="Modelo"><input id="mmCusto" type="number" placeholder="Custo padrão"><input id="mmMin" type="number" placeholder="Estoque mínimo"><input id="mmIdeal" type="number" placeholder="Estoque ideal"><button id="addModelo" class="pri">Adicionar modelo</button><div id="modMsg" class="msg"></div></div><div class="card"><h2>Técnico</h2><input id="tecNome" placeholder="Nome técnico"><button id="addTec" class="pri">Adicionar técnico</button><div id="tecMsg" class="msg"></div><h2>Local</h2><input id="locNome" placeholder="Nome local"><select id="locTipo"><option>Estoque</option><option>Técnico</option><option>Cliente</option><option>Rua</option><option>Manutenção</option><option>Inutilizado</option><option>Outro</option></select><button id="addLocal" class="pri">Adicionar local</button><div id="locMsg" class="msg"></div></div></div><div class="card"><h2>Modelos cadastrados</h2><div class="tbl"><table><thead><tr><th>Tipo</th><th>Marca</th><th>Modelo</th><th>Custo</th><th>Mínimo</th><th>Ideal</th><th>Qtd estoque</th><th>Ações</th></tr></thead><tbody id="modelTable"></tbody></table></div></div><div class="card"><h2>Técnicos cadastrados</h2><div id="tecList"></div></div><div class="card"><h2>Locais cadastrados</h2><div id="locList"></div></div></section>
   <section id="p-historico" class="page"><div class="card"><h2>Histórico</h2><input id="histFilter" placeholder="Filtrar histórico"><div class="tbl"><table><thead><tr><th>Data</th><th>Tipo</th><th>Código</th><th>MAC/SN</th><th>Técnico</th><th>Destino</th><th>Cliente</th><th>OS</th><th>Status</th><th>Origem</th><th>Obs</th></tr></thead><tbody id="histT"></tbody></table></div></div></section>
 </main>
 </div>
 <script src="app.js?v=26"></script>
 <script src="patch27.js?v=27"></script>
-<script src="patch28.js?v=28"></script>
+<script src="patch28.js?v=281"></script>
+<script src="patch29.js?v=29"></script>
 </body>
 </html>
