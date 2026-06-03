@@ -1,7 +1,46 @@
 let likeDirty=false;
-function markLikeDirty(){likeDirty=true;const e=document.getElementById('syncWarn');if(e){e.textContent='Atualização pendente: clique em Recarregar dados antes de fechar';e.className='status bad'}}
-function clearLikeDirty(){likeDirty=false;const e=document.getElementById('syncWarn');if(e){e.textContent='Atualizado';e.className='status ok'}}
-window.addEventListener('beforeunload',function(ev){if(likeDirty){ev.preventDefault();ev.returnValue='Há alterações recentes. Clique em Recarregar dados antes de fechar.';return ev.returnValue}});
+let likeAutoReloadTimer=null;
+let likeAutoReloadRunning=false;
+
+function setSyncStatus(text,cls){
+  const a=document.getElementById('syncWarn');
+  const b=document.getElementById('syncWarnTop');
+  [a,b].forEach(e=>{if(e){e.textContent=text;e.className='status '+cls}});
+}
+function markLikeDirty(){
+  likeDirty=true;
+  setSyncStatus('Sincronizando automaticamente...', 'bad');
+  scheduleAutoReload();
+}
+function clearLikeDirty(){
+  likeDirty=false;
+  setSyncStatus('Atualizado', 'ok');
+}
+function scheduleAutoReload(){
+  clearTimeout(likeAutoReloadTimer);
+  likeAutoReloadTimer=setTimeout(async()=>{
+    if(likeAutoReloadRunning || !sb) return;
+    try{
+      likeAutoReloadRunning=true;
+      setSyncStatus('Atualizando dados...', 'bad');
+      await loadAll();
+      clearLikeDirty();
+    }catch(e){
+      console.error(e);
+      likeDirty=true;
+      setSyncStatus('Falha ao atualizar. Clique em Recarregar dados.', 'bad');
+    }finally{
+      likeAutoReloadRunning=false;
+    }
+  },1200);
+}
+window.addEventListener('beforeunload',function(ev){
+  if(likeDirty){
+    ev.preventDefault();
+    ev.returnValue='Ainda existe uma sincronização automática pendente.';
+    return ev.returnValue;
+  }
+});
 
 const likeOriginalIns=ins;
 ins=async function(t,r){const out=await likeOriginalIns(t,r);markLikeDirty();return out};
@@ -55,9 +94,5 @@ async function retornoSemCadastro(){
 document.addEventListener('DOMContentLoaded',function(){
   if(document.getElementById('retorno')) retorno.onclick=retornoSemCadastro;
   ['retTipo','retMarca'].forEach(id=>{const el=document.getElementById(id);if(el)el.onchange=render});
-  const oldLogin=login;
-  login=async function(){await oldLogin();document.body.classList.add('logged')};
-  const oldLogout=logout;
-  logout=async function(){await oldLogout();document.body.classList.remove('logged')};
   clearLikeDirty();
 });
