@@ -7,10 +7,8 @@ document.addEventListener('DOMContentLoaded',function(){
  setTimeout(function(){load('patch42loader','patch42.js?v=42')},2600);
  setTimeout(function(){load('patch43loader','patch43.js?v=43')},3200);
  setTimeout(function(){load('patch44loader','patch44.js?v=44')},3600);
- setTimeout(function(){load('patch45loader','patch45.js?v=45')},4200);
- setTimeout(function(){load('patch46loader','patch46.js?v=46')},4700);
- setTimeout(function(){load('patch48loader','patch48.js?v=48')},5200);
- setTimeout(function(){load('patch49loader','patch49.js?v=49')},5600);
- setTimeout(function(){load('patch49loader','patch49.js?v=49')},8000);
+ setTimeout(function(){load('patch46loader','patch46.js?v=46')},4200);
+ setTimeout(function(){load('patch50loader','patch50.js?v=50')},4700);
+ setTimeout(function(){load('patch50loader','patch50.js?v=50')},7000);
 });
 })();
