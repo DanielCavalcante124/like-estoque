@@ -1,14 +1,9 @@
-/* LIKE Estoque V30.3 - carregador do modulo prioridade estoque */
 (function(){
-  function loadPolicyModule(){
-    if(document.getElementById('patch37loader')) return;
-    var s=document.createElement('script');
-    s.id='patch37loader';
-    s.src='patch37.js?v=37';
-    document.body.appendChild(s);
-  }
-  document.addEventListener('DOMContentLoaded',function(){
-    setTimeout(loadPolicyModule,1200);
-    setTimeout(loadPolicyModule,3000);
-  });
+function load(id,src){if(document.getElementById(id))return;var s=document.createElement('script');s.id=id;s.src=src;document.body.appendChild(s)}
+document.addEventListener('DOMContentLoaded',function(){
+ setTimeout(function(){load('patch37loader','patch37.js?v=37')},1200);
+ setTimeout(function(){load('patch38loader','patch38.js?v=38')},1800);
+ setTimeout(function(){load('patch37loader','patch37.js?v=37')},3000);
+ setTimeout(function(){load('patch38loader','patch38.js?v=38')},3600);
+});
 })();
