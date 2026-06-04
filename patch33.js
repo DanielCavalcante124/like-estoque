@@ -1,4 +1,4 @@
-/* LIKE Estoque V33.2 - login com cores do sistema e validação real */
+/* LIKE Estoque V33.4 - login com validação real e carga tolerante */
 (function(){
   let authenticated=false;
   function $(id){return document.getElementById(id)}
@@ -36,7 +36,6 @@
       body.logged #p-login{display:none!important}
     `;
     document.head.appendChild(s);
-
     if($('url')){$('url').value=DEFAULT_URL;$('url').type='hidden';$('url').style.display='none'}
     if($('key')){$('key').value=DEFAULT_KEY;$('key').type='hidden';$('key').style.display='none'}
     if($('email')){$('email').placeholder='E-mail do usuário'}
@@ -50,77 +49,28 @@
     try{sb=null}catch(e){}
     document.body.classList.remove('logged');
     document.body.classList.add('auth-ready');
-    try{
-      document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
-      $('p-login')?.classList.add('on');
-      document.querySelectorAll('.nav').forEach(n=>n.classList.remove('on'));
-    }catch(e){}
+    try{document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));$('p-login')?.classList.add('on');document.querySelectorAll('.nav').forEach(n=>n.classList.remove('on'))}catch(e){}
     if(message && $('loginMsg')){$('loginMsg').textContent=message;$('loginMsg').className='msg '+cls}
   }
-
-  function unlock(email){
-    authenticated=true;
-    document.body.classList.add('logged');
-    document.body.classList.remove('auth-ready');
-    if($('conn')){$('conn').textContent='● Online';$('conn').style.color='#dcfce7'}
-    if($('st')) $('st').textContent='Conectado como '+email;
-  }
+  function unlock(email){authenticated=true;document.body.classList.add('logged');document.body.classList.remove('auth-ready');if($('conn')){$('conn').textContent='● Online';$('conn').style.color='#dcfce7'}if($('st')) $('st').textContent='Conectado como '+email}
 
   async function strictLogin(){
     const email=($('email')?.value||'').trim();
     const password=$('pass')?.value||'';
     const m=$('loginMsg');
-    try{
-      applySystemLoginColors();
-      if(!email || !password){lock('Informe e-mail e senha.','bad');return}
-      if(m){m.textContent='Validando usuário e senha no Supabase...';m.className='msg'}
-      const client=supabase.createClient(DEFAULT_URL,DEFAULT_KEY);
-      const result=await client.auth.signInWithPassword({email:email,password:password});
-      if(result.error || !result.data || !result.data.session || !result.data.user){
-        try{await client.auth.signOut()}catch(e){}
-        lock('Login ou senha inválidos. Acesso bloqueado.','bad');
-        return;
-      }
-      sb=client;
-      unlock(email);
-      localStorage.setItem('like_cfg_v26',JSON.stringify({url:DEFAULT_URL,key:DEFAULT_KEY,email:email,pass:''}));
-      await loadAll();
-      pg('dash');
-      if(m){m.textContent='Login autorizado.';m.className='msg ok'}
-    }catch(e){
-      lock('Login ou senha inválidos. Acesso bloqueado.','bad');
-    }
-  }
-
-  async function strictLogout(){
-    try{if(sb) await sb.auth.signOut()}catch(e){}
-    if($('conn')){$('conn').textContent='● Offline';$('conn').style.color=''}
-    if($('st')) $('st').textContent='Sessão encerrada';
-    lock('Sessão encerrada. Entre novamente.','');
-  }
-
-  function hookStrict(){
-    window.login=strictLogin;
-    window.logout=strictLogout;
-    const b=$('login'); if(b) b.onclick=strictLogin;
-    const s=$('logout'); if(s) s.onclick=strictLogout;
-    if(!window.__strictPgHooked && typeof window.pg==='function'){
-      window.__strictPgHooked=true;
-      const oldPg=window.pg;
-      window.pg=function(p){
-        if(!authenticated && p!=='login'){
-          lock('Faça login para acessar o sistema.','bad');
-          return oldPg('login');
-        }
-        return oldPg(p);
-      };
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded',()=>{
     applySystemLoginColors();
-    lock('Acesso restrito. Entre com e-mail e senha autorizados.','');
-    setTimeout(()=>{applySystemLoginColors();hookStrict();},400);
-    setTimeout(()=>{applySystemLoginColors();hookStrict();},1400);
-  });
+    if(!email || !password){lock('Informe e-mail e senha.','bad');return}
+    if(m){m.textContent='Validando usuário e senha no Supabase...';m.className='msg'}
+    const client=supabase.createClient(DEFAULT_URL,DEFAULT_KEY);
+    let result;
+    try{result=await client.auth.signInWithPassword({email:email,password:password})}catch(e){lock('Erro ao conectar no Supabase.','bad');return}
+    if(result.error || !result.data || !result.data.session || !result.data.user){try{await client.auth.signOut()}catch(e){}lock('Login ou senha inválidos. Acesso bloqueado.','bad');return}
+    sb=client;unlock(email);localStorage.setItem('like_cfg_v26',JSON.stringify({url:DEFAULT_URL,key:DEFAULT_KEY,email:email,pass:''}));
+    if(m){m.textContent='Login autorizado.';m.className='msg ok'}
+    try{await loadAll()}catch(e){if(m){m.textContent='Login autorizado. Alguns dados não carregaram; clique em Recarregar dados.';m.className='msg warn'}}
+    try{pg('operacao')}catch(e){try{pg('dash')}catch(_e){}}
+  }
+  async function strictLogout(){try{if(sb) await sb.auth.signOut()}catch(e){}if($('conn')){$('conn').textContent='● Offline';$('conn').style.color=''}if($('st')) $('st').textContent='Sessão encerrada';lock('Sessão encerrada. Entre novamente.','')}
+  function hookStrict(){window.login=strictLogin;window.logout=strictLogout;const b=$('login'); if(b) b.onclick=strictLogin;const s=$('logout'); if(s) s.onclick=strictLogout;if(!window.__strictPgHooked && typeof window.pg==='function'){window.__strictPgHooked=true;const oldPg=window.pg;window.pg=function(p){if(!authenticated && p!=='login'){lock('Faça login para acessar o sistema.','bad');return oldPg('login')}return oldPg(p)}}}
+  document.addEventListener('DOMContentLoaded',()=>{applySystemLoginColors();lock('Acesso restrito. Entre com e-mail e senha autorizados.','');setTimeout(()=>{applySystemLoginColors();hookStrict();},400);setTimeout(()=>{applySystemLoginColors();hookStrict();},1400)});
 })();
