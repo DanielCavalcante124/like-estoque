@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded',function(){
  setTimeout(function(){load('patch42loader','patch42.js?v=42')},2600);
  setTimeout(function(){load('patch43loader','patch43.js?v=43')},3200);
  setTimeout(function(){load('patch44loader','patch44.js?v=44')},3600);
- setTimeout(function(){load('patch44loader','patch44.js?v=44')},5600);
+ setTimeout(function(){load('patch45loader','patch45.js?v=45')},4200);
+ setTimeout(function(){load('patch45loader','patch45.js?v=45')},6200);
 });
 })();
