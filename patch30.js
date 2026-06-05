@@ -14,6 +14,5 @@ document.addEventListener('DOMContentLoaded',function(){
  setTimeout(function(){load('patch60loader','patch60.js?v=60')},6100);
  setTimeout(function(){load('patch61loader','patch61.js?v=61')},6800);
  setTimeout(function(){load('patch62loader','patch62.js?v=62')},7300);
- setTimeout(function(){load('patch63loader','patch63.js?v=63')},7900);
 });
 })();
