@@ -14,7 +14,8 @@ document.addEventListener('DOMContentLoaded',function(){
  setTimeout(function(){load('patch60loader','patch60.js?v=60')},6100);
  setTimeout(function(){load('patch61loader','patch61.js?v=61')},6800);
  setTimeout(function(){load('patch62loader','patch62.js?v=62')},7300);
- setTimeout(function(){load('materiaisMainLoader','materiais_main.js?v=2')},8100);
- setTimeout(function(){load('finalStableLoader','final_stable.js?v=1')},9000);
+ setTimeout(function(){load('materiaisMainLoader','materiais_main.js?v=4')},8100);
+ setTimeout(function(){load('finalStableLoader','final_stable.js?v=2')},9000);
+ setTimeout(function(){load('estoqueTecnicoMaterialLoader','estoque_tecnico_material.js?v=1')},9600);
 });
 })();
