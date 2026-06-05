@@ -4,8 +4,9 @@ function E(id){return document.getElementById(id)}
 function H(v){try{return esc(v??'')}catch(e){return String(v??'')}}
 function num(v){return Number(String(v||'').replace(',','.'))||0}
 function msg(id,t,c){let el=E(id);if(el){el.textContent=t;el.className='msg '+(c||'')}}
-function catModelo(m){let c=String(m.categoria_estoque||m.categoria||m.controle||'').toLowerCase();let txt=((m.tipo||'')+' '+(m.modelo||'')).toLowerCase();if(c.includes('patrim')||c.includes('unit'))return 'Patrimônio';if(c.includes('fechado')||c.includes('pacote')||/drop|bobina|cabo de rede|cat5|cat6|internet/.test(txt))return 'Material fechado';if(/rj45|rj 45|conector|adaptador|abraçadeira|abracadeira|bucha|parafuso|fita/.test(txt))return 'Consumo';return 'Consumo'}
-function unidadeModelo(m){return m.unidade_saida||m.unidade||(catModelo(m)==='Material fechado'?'Bobina':'Unidade')}
+function textoModelo(m){return ((m.tipo||'')+' '+(m.marca||'')+' '+(m.modelo||'')).toLowerCase()}
+function catModelo(m){let c=String(m.categoria_estoque||m.categoria||m.controle||'').toLowerCase();let txt=textoModelo(m);if(/drop|bobina|cabo de rede|cat5|cat6|internet/.test(txt)||c.includes('fechado')||c.includes('pacote'))return 'Material fechado';if(/rj45|rj 45|conector|conectores|adaptador|abraçadeira|abracadeira|bucha|parafuso|fita|cordão|cordao|patch cord|pigtail|pig tail/.test(txt)||c.includes('quant')||c.includes('consumo'))return 'Consumo';if(c.includes('patrim')||c.includes('unit'))return 'Patrimônio';return 'Consumo'}
+function unidadeModelo(m){let txt=textoModelo(m);if(m.unidade_saida)return m.unidade_saida;if(m.unidade)return m.unidade;if(catModelo(m)==='Material fechado'){if(/cabo de rede|cat5|cat6|internet/.test(txt))return 'Caixa';return 'Bobina'}return 'Unidade'}
 function isMaterial(m){return catModelo(m)!=='Patrimônio'}
 function modelosMat(){return (D.modelos||[]).filter(isMaterial)}
 async function carregarMat(){try{matSaldos=await loadTable('materiais_saldos','tipo',true)}catch(e){matSaldos=[];msg('matMainMsg','Erro ao carregar saldos: '+e.message,'bad')}try{matMovs=await loadTable('materiais_movimentos','created_at',false)}catch(e){matMovs=[]}}
