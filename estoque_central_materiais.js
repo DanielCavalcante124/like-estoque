@@ -4,6 +4,11 @@ function E(id){return document.getElementById(id)}
 function X(v){try{return esc(v??'')}catch(e){return String(v??'')}}
 function dinheiro(v){try{return br(Number(v||0))}catch(e){return 'R$ '+Number(v||0).toFixed(2)}}
 function qtd(v){let n=Number(v||0);return Number.isInteger(n)?String(n):String(n).replace('.',',')}
+function garantirLegacyEstT(){
+ if(E('estT'))return;
+ const sec=E('p-estoque')||document.body;
+ sec.insertAdjacentHTML('beforeend','<div id="legacyEstTHolder" style="display:none!important"><table><tbody id="estT"></tbody></table></div>');
+}
 async function carregarSaldosCentral(){
  try{saldosCentralCache=await loadTable('materiais_saldos','tipo',true)}catch(e){saldosCentralCache=[]}
 }
@@ -23,8 +28,9 @@ function garantirLayoutCentral(){
  const sec=E('p-estoque');if(!sec)return;
  const card=sec.querySelector('.card');
  if(card&&!E('centralPatrimoniosBox')){
-  card.innerHTML='<h2>Estoque central</h2><p class="small">Separado por patrimônio, materiais de consumo e materiais fechados.</p><div class="kpis" id="centralKpis"></div><h3>Patrimônios / equipamentos unitários</h3><div id="centralPatrimoniosBox"></div>';
+  card.innerHTML='<h2>Estoque central</h2><p class="small">Separado por patrimônio, materiais de consumo e materiais fechados.</p><div class="kpis" id="centralKpis"></div><h3>Patrimônios / equipamentos unitários</h3><div id="centralPatrimoniosBox"></div><div style="display:none!important"><table><tbody id="estT"></tbody></table></div>';
  }
+ garantirLegacyEstT();
  if(!E('centralConsumoBox'))sec.insertAdjacentHTML('beforeend','<div class="card"><h2>Materiais de consumo no estoque central</h2><p class="small">Itens controlados por quantidade: conectores, RJ45, adaptadores, abraçadeiras e similares.</p><div id="centralConsumoBox"></div></div>');
  if(!E('centralFechadoBox'))sec.insertAdjacentHTML('beforeend','<div class="card"><h2>Materiais fechados no estoque central</h2><p class="small">Itens que saem fechados: bobinas, caixas e pacotes fechados.</p><div id="centralFechadoBox"></div></div>');
 }
@@ -39,11 +45,12 @@ async function renderEstoqueCentralCompleto(){
  if(E('centralPatrimoniosBox'))E('centralPatrimoniosBox').innerHTML=tabelaPatrimonios(pats);
  if(E('centralConsumoBox'))E('centralConsumoBox').innerHTML=tabelaMateriais(cons,'material de consumo');
  if(E('centralFechadoBox'))E('centralFechadoBox').innerHTML=tabelaMateriais(fech,'material fechado');
+ garantirLegacyEstT();
 }
 window.renderEstoqueCentralCompleto=renderEstoqueCentralCompleto;
 const pgBase=window.pg;
-window.pg=function(p){pgBase(p);if(p==='estoque')setTimeout(renderEstoqueCentralCompleto,150)};
+window.pg=function(p){garantirLegacyEstT();pgBase(p);if(p==='estoque')setTimeout(renderEstoqueCentralCompleto,150)};
 const renderBase=window.render;
-window.render=function(){renderBase();if(E('p-estoque')&&E('p-estoque').classList.contains('on'))setTimeout(renderEstoqueCentralCompleto,50)};
-document.addEventListener('DOMContentLoaded',function(){setTimeout(renderEstoqueCentralCompleto,2500);setTimeout(renderEstoqueCentralCompleto,7000)});
+window.render=function(){garantirLegacyEstT();renderBase();garantirLegacyEstT();if(E('p-estoque')&&E('p-estoque').classList.contains('on'))setTimeout(renderEstoqueCentralCompleto,50)};
+document.addEventListener('DOMContentLoaded',function(){setTimeout(garantirLegacyEstT,500);setTimeout(renderEstoqueCentralCompleto,2500);setTimeout(renderEstoqueCentralCompleto,7000)});
 })();
