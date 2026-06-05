@@ -15,11 +15,11 @@ function ensureMateriais(){
   }
 }
 function cleanTecnicos(){
-  var keep=false;
+  var keepFound=false;
   document.querySelectorAll('.nav').forEach(function(b){
     var txt=(b.textContent||'').trim().toLowerCase();
     if(txt==='técnicos'||txt==='tecnicos'){
-      if(b.dataset.p==='tecnicosMain'&&!keep){keep=true;return}
+      if(b.dataset.p==='tecnicosMain'&&!keepFound){keepFound=true;return}
       b.remove();
     }
   });
@@ -36,6 +36,11 @@ function bindNav(){
   });
 }
 function run(){ensureMateriais();cleanTecnicos();bindNav();}
-document.addEventListener('DOMContentLoaded',function(){setTimeout(run,500);setTimeout(run,2500);setTimeout(run,6000);setTimeout(run,10000)});
-setInterval(run,3000);
+window.finalStableRun=run;
+document.addEventListener('DOMContentLoaded',function(){
+  setTimeout(run,500);
+  setTimeout(run,2500);
+  setTimeout(run,6000);
+  setTimeout(run,11000);
+});
 })();
