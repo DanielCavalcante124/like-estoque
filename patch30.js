@@ -18,5 +18,6 @@ document.addEventListener('DOMContentLoaded',function(){
  setTimeout(function(){load('finalStableLoader','final_stable.js?v=2')},9000);
  setTimeout(function(){load('estoqueTecnicoMaterialLoader','estoque_tecnico_material.js?v=1')},9600);
  setTimeout(function(){load('estoqueCentralMateriaisLoader','estoque_central_materiais.js?v=1')},10200);
+ setTimeout(function(){load('entradaLoteLoader','entrada_lote.js?v=1')},10800);
 });
 })();
