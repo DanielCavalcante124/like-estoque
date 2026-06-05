@@ -1,6 +1,7 @@
 (function(){
 function load(id,src){if(document.getElementById(id))return;var s=document.createElement('script');s.id=id;s.src=src;document.body.appendChild(s)}
 document.addEventListener('DOMContentLoaded',function(){
+ setTimeout(function(){load('patch59loader','patch59.js?v=59')},300);
  setTimeout(function(){load('patch37loader','patch37.js?v=37')},1200);
  setTimeout(function(){load('patch38loader','patch38.js?v=38')},1800);
  setTimeout(function(){load('patch39loader','patch39.js?v=39')},2200);
@@ -11,6 +12,6 @@ document.addEventListener('DOMContentLoaded',function(){
  setTimeout(function(){load('patch50loader','patch50.js?v=50')},4700);
  setTimeout(function(){load('patch51loader','patch51.js?v=56')},5200);
  setTimeout(function(){load('patch56loader','patch56.js?v=56')},6100);
- setTimeout(function(){load('patch59loader','patch59.js?v=59')},300);
+ setTimeout(function(){load('patch60loader','patch60.js?v=60')},6800);
 });
 })();
