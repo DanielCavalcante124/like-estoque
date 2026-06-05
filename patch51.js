@@ -14,6 +14,7 @@ window.p50Del=async function(tab,id){
  if(r.error){D.produtoTipos=backup.tipos;D.produtoMarcas=backup.marcas;D.modelos=backup.modelos;redrawProdutos();alert('Erro ao excluir: '+r.error.message);return}
  try{if(typeof lp==='function')await lp()}catch(e){}try{redrawProdutos()}catch(e){}
 };
-function loadExtra(){if(document.getElementById('patch52loader'))return;var s=document.createElement('script');s.id='patch52loader';s.src='patch52.js?v=52';document.body.appendChild(s)}
-setTimeout(loadExtra,800);setTimeout(loadExtra,2500);
+function loadScript(id,src){if(document.getElementById(id))return;var s=document.createElement('script');s.id=id;s.src=src;document.body.appendChild(s)}
+function loadExtra(){loadScript('patch52loader','patch52.js?v=52');loadScript('patch53loader','patch53.js?v=53')}
+setTimeout(loadExtra,800);setTimeout(loadExtra,2500);setTimeout(loadExtra,5000);
 })();
