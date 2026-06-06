@@ -4,6 +4,7 @@ let matSaldosMain=[];
 function T(id){return document.getElementById(id)}
 function V(v){try{return esc(v??'')}catch(e){return String(v??'')}}
 function real(v){try{return br(Number(v||0))}catch(e){return 'R$ '+Number(v||0).toFixed(2)}}
+function loadExtraScript(id,src){if(document.getElementById(id))return;var s=document.createElement('script');s.id=id;s.src=src;document.body.appendChild(s)}
 async function carregarMateriaisTecnico(){try{matSaldosMain=await loadTable('materiais_saldos','tipo',true)}catch(e){matSaldosMain=[]}}
 function tecEqNome(e){return e.tecnicoAtual||e.tecnico_atual||e.tecnico||''}
 function nomeEq(e){return ((e.tipo||'')+' '+(e.marca||'')+' '+(e.modelo||'')).trim()}
@@ -18,7 +19,8 @@ async function addTecMain(){try{let nome=(T('tecMainNome').value||'').trim();if(
 async function excluirTecMain(id,nome){try{if(eqsTec(nome).length||matsTec(nome).length){alert('Não exclua técnico com equipamento/material em posse. Devolva ou transfira antes.');return}if(!id){alert('Este técnico aparece por movimentação antiga, mas não tem cadastro direto para excluir.');return}if(!confirm('Excluir técnico '+nome+'?'))return;await del('tecnicos',id);D.tecnicos=D.tecnicos.filter(t=>t.id!==id);if(tecSel===nome)tecSel='';await atualizarTecnicosMain(false);msg('tecMainMsg','Técnico excluído.','ok')}catch(e){msg('tecMainMsg','Erro ao excluir: '+e.message,'bad')}}
 function copiarTecMain(){if(!tecSel){msg('tecMainMsg','Selecione um técnico.','bad');return}let txt='RELATÓRIO DO TÉCNICO\nTécnico: '+tecSel+'\nEquipamentos: '+eqsTec(tecSel).length+'\nMateriais: '+matsTec(tecSel).length+'\n\nEQUIPAMENTOS:\n'+(eqsTec(tecSel).map(e=>'- '+(e.codigo||'')+' | '+nomeEq(e)+' | '+(e.mac||e.serial||'-')+' | '+(e.status||'')).join('\n')||'Sem equipamentos.')+'\n\nMATERIAIS:\n'+(matsTec(tecSel).map(m=>'- '+m.tipo+' '+(m.marca||'')+' '+m.modelo+' | '+m.quantidade+' '+m.unidade_saida).join('\n')||'Sem materiais.');navigator.clipboard.writeText(txt).then(()=>msg('tecMainMsg','Copiado.','ok'))}
 function bindTecMain(){if(T('tecMainBusca'))T('tecMainBusca').oninput=renderListaTecnicosMain;if(T('tecMainAdd'))T('tecMainAdd').onclick=addTecMain;if(T('tecMainReload'))T('tecMainReload').onclick=()=>atualizarTecnicosMain(true).then(()=>msg('tecMainMsg','Lista atualizada.','ok'));if(T('tecMainVer'))T('tecMainVer').onclick=()=>{if(!tecSel){msg('tecMainMsg','Selecione um técnico.','bad');return}T('tecMainArea').innerHTML=tabelaTec()};if(T('tecMainCopiar'))T('tecMainCopiar').onclick=copiarTecMain;if(T('tecMainPrint'))T('tecMainPrint').onclick=()=>window.print()}
-const pgOriginal=window.pg;window.pg=function(p){pgOriginal(p);if(p==='tecnicosMain')setTimeout(()=>atualizarTecnicosMain(true),100)};
-const renderOriginal=window.render;window.render=function(){renderOriginal();bindTecMain();if(T('p-tecnicosMain')&&T('p-tecnicosMain').classList.contains('on'))atualizarTecnicosMain(false)};
-document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{bindTecMain();atualizarTecnicosMain(false)},1500));
+function carregarShellOficial(){loadExtraScript('uiShellDirectFromTec','ui_shell.js?v=3');loadExtraScript('relCoreDirectFromTec','relatorios_core.js?v=3');setTimeout(function(){if(window.uiShellRun)window.uiShellRun();if(window.relatoriosCoreBoot)window.relatoriosCoreBoot()},1200)}
+const pgOriginal=window.pg;window.pg=function(p){pgOriginal(p);if(p==='tecnicosMain')setTimeout(()=>atualizarTecnicosMain(true),100);setTimeout(carregarShellOficial,150)};
+const renderOriginal=window.render;window.render=function(){renderOriginal();bindTecMain();if(T('p-tecnicosMain')&&T('p-tecnicosMain').classList.contains('on'))atualizarTecnicosMain(false);setTimeout(carregarShellOficial,150)};
+document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{bindTecMain();atualizarTecnicosMain(false);carregarShellOficial()},1500));
 })();
