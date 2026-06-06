@@ -21,5 +21,6 @@ document.addEventListener('DOMContentLoaded',function(){
  setTimeout(function(){load('entradaLoteLoader','entrada_lote.js?v=1')},10800);
  setTimeout(function(){load('paginacaoTabelasLoader','paginacao_tabelas.js?v=1')},11400);
  setTimeout(function(){load('operacaoEstoqueBuscaLoader','operacao_estoque_busca.js?v=1')},12000);
+ setTimeout(function(){load('operacaoRapidaLoader','operacao_rapida.js?v=1')},12600);
 });
 })();
