@@ -35,7 +35,7 @@
     }
     if(msg && msg.textContent.includes('Aguardando')) msg.textContent='Informe e-mail e senha para entrar.';
   }
-  function bootExtras(){loadExtra('saidaCarrinhoLoader31','saida_carrinho.js?v=2');loadExtra('relTecFixLoader31','relatorios_tecnico_fix.js?v=1')}
+  function bootExtras(){loadExtra('saidaCarrinhoLoader31','saida_carrinho.js?v=3');loadExtra('relTecFixLoader31','relatorios_tecnico_fix.js?v=2');loadExtra('relatoriosSafePatch31','relatorios_safe_patch.js?v=1')}
   document.addEventListener('DOMContentLoaded',()=>{
     simplifyLogin();
     bootExtras();
