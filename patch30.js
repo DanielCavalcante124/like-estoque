@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded',function(){
  setTimeout(function(){load('patch61loader','patch61.js?v=61')},6800);
  setTimeout(function(){load('patch62loader','patch62.js?v=62')},7300);
  setTimeout(function(){load('materiaisMainLoader','materiais_main.js?v=4')},8100);
- setTimeout(function(){load('finalStableLoader','final_stable.js?v=2')},9000);
+ setTimeout(function(){load('finalStableLoader','final_stable.js?v=3')},9000);
  setTimeout(function(){load('estoqueTecnicoMaterialLoader','estoque_tecnico_material.js?v=1')},9600);
  setTimeout(function(){load('estoqueCentralMateriaisLoader','estoque_central_materiais.js?v=1')},10200);
  setTimeout(function(){load('entradaLoteLoader','entrada_lote.js?v=1')},10800);
@@ -25,5 +25,6 @@ document.addEventListener('DOMContentLoaded',function(){
  setTimeout(function(){load('operacaoRapidaLoader','operacao_rapida.js?v=1')},12600);
  setTimeout(function(){load('relatoriosBlocosLoader','relatorios_blocos.js?v=2')},13200);
  setTimeout(function(){load('relatoriosDatasLoader','relatorios_datas.js?v=1')},13800);
+ setTimeout(function(){load('relatoriosCoreLoader','relatorios_core.js?v=1')},14500);
 });
 })();
