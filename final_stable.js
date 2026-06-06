@@ -36,10 +36,14 @@ function ensureEntradaPatrimonial(){
  loadOnce('entradaPatrimonialGuardFinal','entrada_patrimonial_guard.js?v=1');
  setTimeout(function(){if(window.entradaPatrimonialGuardRun)window.entradaPatrimonialGuardRun()},700);
 }
+function ensureTecnicosActions(){
+ loadOnce('tecnicosActionsFixFinal','tecnicos_actions_fix.js?v=1');
+ setTimeout(function(){if(window.tecnicosActionsFixBind)window.tecnicosActionsFixBind()},700);
+}
 window.relHardMsg=function(fn){var out=E('relOut');if(out){out.className='msg warn';out.innerHTML='O bloco visual carregou, mas a função '+fn+' ainda não terminou de carregar. Aguarde 5 segundos e clique novamente.'}}
 function cleanTecnicos(){var keep=false;document.querySelectorAll('.nav').forEach(function(b){var txt=(b.textContent||'').trim().toLowerCase();if(txt==='técnicos'||txt==='tecnicos'){if(b.dataset.p==='tecnicosMain'&&!keep){keep=true;return}b.remove()}});var side=document.querySelector('.side');if(side&&!document.querySelector('[data-p="tecnicosMain"]')){var ref=document.querySelector('[data-p="tecnico"]')||document.querySelector('[data-p="materiaisMain"]')||document.querySelector('[data-p="estoque"]');addAfter(ref,'<button class="nav" data-p="tecnicosMain">Técnicos</button>')}['p-tecnicosFull','p-tecnicos65','p-tecnicosFix'].forEach(function(id){var x=E(id);if(x)x.remove()})}
 function bindNav(){document.querySelectorAll('.nav').forEach(function(b){b.onclick=function(){if(typeof pg==='function')pg(b.dataset.p)}})}
-function run(){ensureMateriais();ensureRelatorios();cleanTecnicos();ensureEntradaPatrimonial();bindNav()}
+function run(){ensureMateriais();ensureRelatorios();cleanTecnicos();ensureEntradaPatrimonial();ensureTecnicosActions();bindNav()}
 window.finalStableRun=run;
 document.addEventListener('DOMContentLoaded',function(){[300,1000,2500,5000,9000,13000,18000].forEach(function(t){setTimeout(run,t)})});
 })();
