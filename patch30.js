@@ -26,5 +26,6 @@ document.addEventListener('DOMContentLoaded',function(){
  setTimeout(function(){load('relatoriosBlocosLoader','relatorios_blocos.js?v=2')},13200);
  setTimeout(function(){load('relatoriosDatasLoader','relatorios_datas.js?v=1')},13800);
  setTimeout(function(){load('relatoriosCoreLoader','relatorios_core.js?v=1')},14500);
+ setTimeout(function(){load('uiShellLoader','ui_shell.js?v=1')},15200);
 });
 })();
