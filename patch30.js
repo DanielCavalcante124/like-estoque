@@ -24,5 +24,6 @@ document.addEventListener('DOMContentLoaded',function(){
  setTimeout(function(){load('operacaoEstoqueBuscaLoader','operacao_estoque_busca.js?v=1')},12000);
  setTimeout(function(){load('operacaoRapidaLoader','operacao_rapida.js?v=1')},12600);
  setTimeout(function(){load('relatoriosBlocosLoader','relatorios_blocos.js?v=2')},13200);
+ setTimeout(function(){load('relatoriosDatasLoader','relatorios_datas.js?v=1')},13800);
 });
 })();
