@@ -1,6 +1,7 @@
 (function(){
 function load(id,src){if(document.getElementById(id))return;var s=document.createElement('script');s.id=id;s.src=src;document.body.appendChild(s)}
 document.addEventListener('DOMContentLoaded',function(){
+ setTimeout(function(){load('relatoriosFixLoader','relatorios_fix.js?v=1')},150);
  setTimeout(function(){load('patch59loader','patch59.js?v=59')},300);
  setTimeout(function(){load('patch37loader','patch37.js?v=37')},1200);
  setTimeout(function(){load('patch38loader','patch38.js?v=38')},1800);
@@ -22,6 +23,6 @@ document.addEventListener('DOMContentLoaded',function(){
  setTimeout(function(){load('paginacaoTabelasLoader','paginacao_tabelas.js?v=1')},11400);
  setTimeout(function(){load('operacaoEstoqueBuscaLoader','operacao_estoque_busca.js?v=1')},12000);
  setTimeout(function(){load('operacaoRapidaLoader','operacao_rapida.js?v=1')},12600);
- setTimeout(function(){load('relatoriosBlocosLoader','relatorios_blocos.js?v=1')},13200);
+ setTimeout(function(){load('relatoriosBlocosLoader','relatorios_blocos.js?v=2')},13200);
 });
 })();
