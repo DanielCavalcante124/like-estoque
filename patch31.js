@@ -3,6 +3,7 @@
   const SUPABASE_URL='https://yuyeyawigbbjtzghkbbr.supabase.co';
   const SUPABASE_KEY='sb_publishable_9DyOYVHN6035kbUjypbDkA_4zYHk_pI';
   function $(id){return document.getElementById(id)}
+  function loadExtra(id,src){if(document.getElementById(id))return;var s=document.createElement('script');s.id=id;s.src=src;document.body.appendChild(s)}
   function simplifyLogin(){
     const url=$('url'), key=$('key'), email=$('email'), pass=$('pass'), save=$('save'), login=$('login'), msg=$('loginMsg');
     if(!url || !key || !email || !pass) return;
@@ -34,9 +35,13 @@
     }
     if(msg && msg.textContent.includes('Aguardando')) msg.textContent='Informe e-mail e senha para entrar.';
   }
+  function bootExtras(){loadExtra('saidaCarrinhoLoader31','saida_carrinho.js?v=2')}
   document.addEventListener('DOMContentLoaded',()=>{
     simplifyLogin();
+    bootExtras();
     setTimeout(simplifyLogin,500);
     setTimeout(simplifyLogin,1500);
+    setTimeout(bootExtras,2500);
+    setTimeout(bootExtras,6000);
   });
 })();
