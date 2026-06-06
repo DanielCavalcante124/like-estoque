@@ -1,20 +1,5 @@
 (function(){
-function E(id){return document.getElementById(id)}
-function H(v){try{return esc(v??'')}catch(e){return String(v??'')}}
-function brl(v){try{return br(Number(v||0))}catch(e){return 'R$ '+Number(v||0).toFixed(2)}}
-function eqs(){return (window.D&&D.equipamentos)||[]}
-function movs(){return (window.D&&D.movimentos)||[]}
-function nome(e){return [e.tipo,e.marca,e.modelo].filter(Boolean).join(' ')}
-function tecDireto(e){return e.tecnicoAtual||e.tecnico_atual||e.tecnico||''}
-function tecMov(e){let ms=movs().filter(m=>(m.equipamento_id&&m.equipamento_id===e.id)||(m.codigo&&m.codigo===e.codigo)).filter(m=>/saída|saida|técnico|tecnico/i.test([m.tipo,m.destino,m.motivo].join(' '))&&m.tecnico);return ms.length?ms[0].tecnico:''}
-function tecFinal(e){return tecDireto(e)||tecMov(e)||''}
-function isComTecnico(e){return !!tecFinal(e)||/técnico|tecnico|com técnico|com tecnico/i.test([e.status,e.local].join(' '))}
-function row(a){return '<tr>'+a.map(x=>'<td>'+H(x)+'</td>').join('')+'</tr>'}
-function table(cols,rows){return '<div class="tbl"><table><thead><tr>'+cols.map(c=>'<th>'+H(c)+'</th>').join('')+'</tr></thead><tbody>'+(rows.length?rows.map(row).join(''):'<tr><td colspan="'+cols.length+'">Sem registros para os filtros aplicados.</td></tr>')+'</tbody></table></div>'}
-function render(title,cols,raw,kpis){let o=E('relOut');if(!o)return;window.__relCore={title,cols,raw};let k='';if(kpis)k='<div class="relKpis">'+kpis.map(x=>'<div><small>'+H(x[0])+'</small><b>'+H(x[1])+'</b></div>').join('')+'</div>';o.className='';o.innerHTML='<h2>'+H(title)+'</h2><div class="relActions"><button class="pri" onclick="window.print()">Imprimir / PDF</button><button class="warn" onclick="relCsvCore()">Exportar CSV</button></div>'+k+table(cols,raw);if(E('relPrintInfo'))E('relPrintInfo').textContent=title+' • Gerado em '+new Date().toLocaleString('pt-BR');try{if(window.paginarTabelas)window.paginarTabelas()}catch(e){}}
-function refreshTecFilter(){let s=E('relTec');if(!s)return;let old=s.value;let arr=[...new Set([...(D.tecnicos||[]).map(t=>t.nome),...eqs().map(tecFinal)].filter(Boolean))].sort();s.innerHTML='<option value="">Todos</option>'+arr.map(n=>'<option>'+H(n)+'</option>').join('');if(arr.includes(old))s.value=old}
-async function relTech(){try{if(typeof loadAll==='function')await loadAll();refreshTecFilter();let filtro=E('relTec')?E('relTec').value:'';let list=eqs().filter(isComTecnico).filter(e=>!filtro||tecFinal(e)===filtro).filter(e=>!/estoque|cliente|instalado|perdido|inutil/i.test(e.status||''));let raw=list.map(e=>[tecFinal(e)||'-',e.codigo||'',nome(e),e.mac||e.serial||'',e.status||'',e.local||'',brl(e.custo||0)]);let total=list.reduce((s,e)=>s+Number(e.custo||0),0);render('Estoque por técnico', ['Técnico','Código','Equipamento','MAC/SN','Status','Local','Valor'], raw, [['Equipamentos',list.length],['Valor',brl(total)],['Técnicos',[...new Set(list.map(tecFinal).filter(Boolean))].length]]);}catch(e){let o=E('relOut');if(o){o.className='msg bad';o.textContent='Erro ao gerar estoque por técnico: '+e.message}}}
-async function relCharge(){try{if(typeof loadAll==='function')await loadAll();refreshTecFilter();let filtro=E('relTec')?E('relTec').value:'';let name=filtro||[...new Set(eqs().map(tecFinal).filter(Boolean))][0]||'';let list=eqs().filter(e=>tecFinal(e)===name).filter(e=>!/estoque|cliente|instalado|perdido|inutil/i.test(e.status||''));let raw=list.map(e=>['Equipamento',e.codigo||'',nome(e),e.mac||e.serial||'',e.status||'']);let msg='CONFERÊNCIA DE ESTOQUE\nTécnico: '+(name||'Não informado')+'\n\nEQUIPAMENTOS:\n'+(list.map(e=>'- '+(e.codigo||'')+' | '+nome(e)+' | MAC/SN: '+(e.mac||e.serial||'-')).join('\n')||'Sem equipamentos em posse.')+'\n\nFavor conferir e confirmar.';render('Cobrança WhatsApp', ['Tipo','Código','Item','Identificação','Status'], raw, [['Equipamentos',list.length]]);window.__relCore.whats=msg;}catch(e){let o=E('relOut');if(o){o.className='msg bad';o.textContent='Erro ao gerar cobrança: '+e.message}}}
-function wrap(){if(!window.runReportCore||window.__relTecFix)return;let old=window.runReportCore;window.__relTecFix=true;window.runReportCore=function(id){if(id==='tech')return relTech();if(id==='charge')return relCharge();return old(id)}}
-document.addEventListener('DOMContentLoaded',()=>{[500,2000,5000,10000,16000].forEach(t=>setTimeout(wrap,t))});window.relTecFixWrap=wrap;
+// Patch desativado: a correção de técnico foi incorporada diretamente no relatorios_core.js.
+// Mantido vazio para não quebrar cache/carregamento antigo que ainda chama este arquivo.
+window.relTecFixWrap=function(){return true};
 })();
