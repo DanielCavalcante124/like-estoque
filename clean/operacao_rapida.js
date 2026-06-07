@@ -1,12 +1,11 @@
 import { table, call } from './api.js?v=3';
 
-const S = { equipamentos: [], saldos: [], tecnicos: [], cartEq: [], cartMat: [], filtro: '' };
+const S = { equipamentos: [], saldos: [], tecnicos: [], cartEq: [], cartMat: [], filtro: '', confirmando: false };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const qtd = (v) => Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
-const money = (v) => Number(v || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const opId = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2);
+const opId = () => globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8); return v.toString(16); });
 const norm = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const key = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 
@@ -26,7 +25,7 @@ function msg(id, text, type=''){
 }
 function nomeEq(e){ return [e.tipo,e.marca,e.modelo].filter(Boolean).join(' ') || e.codigo || '-'; }
 function nomeMat(m){ return [m.tipo,m.marca,m.modelo].filter(Boolean).join(' ') || 'Material'; }
-function eqStatus(e){ return norm(e.status); }
+function eqStatus(e){ return norm(e?.status); }
 function isEqAtivo(e){ return e && e.ativo !== false && !['baixado','inutilizado','perdido'].includes(eqStatus(e)); }
 function isEqDisponivel(e){ return isEqAtivo(e) && ['em estoque','reservado'].includes(eqStatus(e)); }
 function isEqComTecnico(e){ return isEqAtivo(e) && (eqStatus(e) === 'com tecnico' || !!e.tecnico_atual); }
@@ -339,6 +338,10 @@ async function copiarWhatsApp(show=false){
 }
 
 async function confirmar(){
+  const btn = $('opRapidaConfirmar');
+  if(S.confirmando) return;
+  S.confirmando = true;
+  if(btn){ btn.disabled = true; btn.textContent = 'Confirmando...'; }
   try{
     const tecnico = $('opRapidaTecnico')?.value || '';
     const os = $('opRapidaOs')?.value.trim() || '';
@@ -374,7 +377,12 @@ async function confirmar(){
     $('opRapidaObs').value = '';
     await load();
     msg('opRapidaCartMsg', `Saída confirmada: ${result?.equipamentos_count || 0} equipamento(s) e ${result?.materiais_count || 0} material(is). Mensagem copiada.`, 'ok');
-  }catch(e){ msg('opRapidaCartMsg', e.message || String(e), 'bad'); }
+  }catch(e){
+    msg('opRapidaCartMsg', e.message || String(e), 'bad');
+  }finally{
+    S.confirmando = false;
+    if(btn){ btn.disabled = false; btn.textContent = 'Confirmar saída'; }
+  }
 }
 function limparCarrinho(){ S.cartEq = []; S.cartMat = []; renderCart(); msg('opRapidaCartMsg','Carrinho limpo.', 'warn'); }
 function autoAddScan(){
@@ -392,12 +400,14 @@ async function abrirFluxo(tipo, id){
   nav.click();
   await sleep(250);
   if(typeof window[f.load] === 'function') await window[f.load]();
-  await sleep(80);
+  await sleep(100);
   const select = $(f.select);
-  if(select){
-    select.value = id;
-    select.dispatchEvent(new Event('change', { bubbles:true }));
+  if(!select) return msg('opRapidaMsg', `Campo de seleção da tela ${f.label} não encontrado.`, 'bad');
+  select.value = id;
+  if(select.value !== id){
+    return msg('opRapidaMsg', `O equipamento não apareceu na lista de ${f.label}. Verifique o status atual.`, 'bad');
   }
+  select.dispatchEvent(new Event('change', { bubbles:true }));
   if(f.form) $(f.form)?.dispatchEvent(new Event('submit', { bubbles:true, cancelable:true }));
 }
 
