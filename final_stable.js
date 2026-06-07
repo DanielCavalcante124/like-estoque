@@ -33,7 +33,7 @@ function ensureRelatorios(){
  loadOnce('relatoriosBlocosDirect','relatorios_blocos.js?v=5');
 }
 function ensureEntradaPatrimonial(){
- loadOnce('entradaPatrimonialGuardFinal','entrada_patrimonial_guard.js?v=1');
+ loadOnce('entradaPatrimonialGuardFinal','entrada_patrimonial_guard.js?v=2');
  setTimeout(function(){if(window.entradaPatrimonialGuardRun)window.entradaPatrimonialGuardRun()},700);
 }
 function ensureTecnicosActions(){
