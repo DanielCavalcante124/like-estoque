@@ -1,4 +1,5 @@
 import { table, call, first } from './api.js?v=3';
+import { openMovimentacaoModal } from './movimentacao_modal.js?v=1';
 
 const S = { equipamentos: [], tecnicos: [], locais: [], selecionado: null };
 const $ = (id) => document.getElementById(id);
@@ -100,20 +101,8 @@ function inject(){
             <tbody id="devolucaoTbody"></tbody>
           </table>
         </div>
-      </div>
-
-      <div id="devolucaoModal" class="modal-clean" style="display:none">
-        <div class="modal-clean-box">
-          <h2>Confirmar devolução</h2>
-          <div id="devolucaoModalResumo" class="list"></div>
-          <div class="actions">
-            <button id="devolucaoConfirmar" class="primary" type="button">Confirmar devolução</button>
-            <button id="devolucaoCancelar" class="secondary" type="button">Cancelar</button>
-          </div>
-        </div>
       </div>`;
     document.querySelector('.main').appendChild(sec);
-    ensureStyle();
   }
 
   if(bound) return;
@@ -128,8 +117,6 @@ function inject(){
   ['devolucaoDestino','devolucaoOs','devolucaoMotivo','devolucaoObs','devolucaoFiltroTabela'].forEach(id=>{
     const el=$(id); if(el) el.addEventListener('input',()=>{ if(id==='devolucaoFiltroTabela') renderTabela(); else renderPreview(); });
   });
-  $('devolucaoCancelar').onclick = fecharModal;
-  $('devolucaoConfirmar').onclick = confirmarDevolucao;
   document.addEventListener('click', ev => {
     const btn = ev.target.closest('[data-devolucao-eq]');
     if(!btn) return;
@@ -137,14 +124,6 @@ function inject(){
     selecionarEquipamento();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
-}
-
-function ensureStyle(){
-  if($('devolucaoModalStyle')) return;
-  const st = document.createElement('style');
-  st.id = 'devolucaoModalStyle';
-  st.textContent = `.modal-clean{position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px}.modal-clean-box{background:#fff;border-radius:20px;max-width:720px;width:100%;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.35)}.modal-clean-box h2{margin-top:0}`;
-  document.head.appendChild(st);
 }
 
 function showPage(){
@@ -232,19 +211,21 @@ function renderPreview(){
   $('devolucaoRegra').textContent = 'Revise os dados antes de confirmar a devolução.';
   $('devolucaoPreview').innerHTML = resumoHtml(p);
 }
-function abrirConfirmacao(ev){
+async function abrirConfirmacao(ev){
   ev.preventDefault();
   try{
     const p = payload();
-    $('devolucaoModalResumo').innerHTML = resumoHtml(p);
-    $('devolucaoModal').style.display = 'flex';
+    const ok = await openMovimentacaoModal({
+      title: 'Confirmar devolução',
+      subtitle: 'A devolução altera status, local e histórico do equipamento.',
+      html: resumoHtml(p),
+      confirmText: 'Confirmar devolução'
+    });
+    if(ok) await confirmarDevolucao(p);
   }catch(e){ msg(e.message,'bad'); renderPreview(); }
 }
-function fecharModal(){ $('devolucaoModal').style.display = 'none'; }
-async function confirmarDevolucao(){
+async function confirmarDevolucao(p){
   try{
-    const p = payload();
-    $('devolucaoConfirmar').disabled = true;
     msg('Registrando devolução via RPC...', 'warn');
     const result = first(await call('rpc_registrar_devolucao_equipamento', {
       p_equipamento_id: p.eq.id,
@@ -256,12 +237,10 @@ async function confirmarDevolucao(){
       p_observacao: p.obs,
       p_client_operation_id: opId()
     }));
-    fecharModal();
     msg(`Devolução registrada. Status: ${result?.status || 'atualizado'}.`, 'ok');
     limparForm(false);
     await loadDevolucao();
   }catch(e){ msg(e.message || String(e),'bad'); }
-  finally{ $('devolucaoConfirmar').disabled = false; }
 }
 
 function limparForm(show=true){
