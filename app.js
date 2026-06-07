@@ -11,6 +11,9 @@ function br(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',curr
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function msg(id,text,cls=''){let el=$(id); if(el){el.textContent=text; el.className='msg '+cls}}
 function db(){if(!sb)throw Error('Conecte ao Supabase primeiro.');return sb}
+function opId(){return crypto&&crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random().toString(16).slice(2)}
+async function rpcOne(name,params){const r=await db().rpc(name,params);if(r.error)throw r.error;return Array.isArray(r.data)?r.data[0]:r.data}
+function isAtivo(e){return e&&e.ativo!==false&&e.status!=='Baixado'}
 
 function saveCfg(){
   const c={url:$('url').value.trim(),key:$('key').value.trim(),email:$('email').value.trim(),pass:$('pass').value};
@@ -71,11 +74,13 @@ async function entrada(){
     if(!t||!m||!mo){msg('entMsg','Selecione tipo, marca e modelo. Cadastre o produto/modelo antes.','bad');return}
     if(!mac&&!sn){msg('entMsg','Informe MAC ou Serial/SN.','bad');return}
     if(D.equipamentos.some(e=>(mac&&N(e.mac)==N(mac))||(sn&&N(e.serial)==N(sn)))){msg('entMsg','Já existe equipamento com esse MAC ou Serial/SN.','bad');return}
-    let e={codigo:next('EQP','codigo'),patrimonio:next('PAT','patrimonio'),tipo:t,marca:m,modelo:mo,mac:mac||null,serial:sn||null,status:'Em estoque',local:$('local').value,custo:Number($('custo').value||0)};
-    e=fromEq(await ins('equipamentos',toEq(e)));D.equipamentos.unshift(e);
-    try{await ins('inventario',{equipamento_id:e.id,conferido:false,data:null,obs:null})}catch(_e){}
-    await mov(e,'Entrada de estoque',{dest:e.local,obs:$('obs').value,mot:'Entrada'});
-    ['mac','serial','custo','forn','nf','resp','obs'].forEach(i=>$(i).value='');render();msg('entMsg','Entrada registrada: '+e.codigo,'ok');
+    const e=fromEq(await rpcOne('rpc_registrar_entrada_equipamento',{
+      p_tipo:t,p_marca:m,p_modelo:mo,p_mac:mac||null,p_serial:sn||null,p_local:$('local').value,
+      p_custo:Number($('custo').value||0),p_observacao:$('obs').value,p_fornecedor:$('forn').value,
+      p_nf:$('nf').value,p_responsavel:$('resp').value,p_client_operation_id:opId()
+    }));
+    ['mac','serial','custo','forn','nf','resp','obs'].forEach(i=>$(i).value='');
+    await loadAll();render();msg('entMsg','Entrada registrada: '+e.codigo,'ok');
   }catch(e){msg('entMsg','Erro ao registrar entrada: '+e.message,'bad')}
 }
 function choose(id){sel=id;const e=D.equipamentos.find(x=>x.id==id);$('q').value=e.mac||e.serial||e.codigo;$('sugs').innerHTML='';$('prev').innerHTML=`<div class="item"><b>${esc(e.codigo)} • ${esc(e.modelo)}</b><span class="status">${esc(e.status)}</span></div>`}
@@ -84,32 +89,36 @@ function search(inp,out,fn){const q=N($(inp).value);$(out).innerHTML=q?D.equipam
 async function saida(){
   try{
     const e=D.equipamentos.find(x=>x.id==sel);if(!e){msg('movMsg','Selecione equipamento.','bad');return}
-    if(['Inutilizado','Perdido','Em manutenção'].includes(e.status)){msg('movMsg','Esse status não permite saída: '+e.status,'bad');return}
-    e.status=$('movTipo').value=='Instalação cliente'?'Instalado cliente':$('movTipo').value=='Enviar para rua'?'Na rua':$('movTipo').value=='Reservar para OS'?'Reservado':'Com técnico';
-    e.local=$('movDest').value;e.tecnicoAtual=$('movTec').value;e.clienteAtual=$('movCli').value;e.osAtual=$('movOS').value;e.motivoAtual=$('movMot').value;
-    await upd('equipamentos',e.id,toEq(e));await mov(e,$('movTipo').value,{tec:e.tecnicoAtual,dest:e.local,cli:e.clienteAtual,os:e.osAtual,mot:e.motivoAtual,obs:$('movObs').value});
-    sel=null;['q','movCli','movOS','movMot','movObs'].forEach(i=>$(i).value='');render();msg('movMsg','Saída registrada.','ok');
+    if(!isAtivo(e)||['Inutilizado','Perdido','Em manutenção','Baixado'].includes(e.status)){msg('movMsg','Esse status não permite saída: '+e.status,'bad');return}
+    const saved=fromEq(await rpcOne('rpc_registrar_saida_equipamento',{
+      p_equipamento_id:e.id,p_mov_tipo:$('movTipo').value,p_tecnico:$('movTec').value,p_destino:$('movDest').value,
+      p_cliente:$('movCli').value,p_os:$('movOS').value,p_motivo:$('movMot').value,p_observacao:$('movObs').value,
+      p_client_operation_id:opId()
+    }));
+    Object.assign(e,saved);
+    sel=null;['q','movCli','movOS','movMot','movObs'].forEach(i=>$(i).value='');
+    await loadAll();render();msg('movMsg','Saída registrada.','ok');
   }catch(e){msg('movMsg','Erro: '+e.message,'bad')}
 }
 async function devolucao(){
   try{
     const e=D.equipamentos.find(x=>x.id==dsel);if(!e){msg('devMsg','Selecione equipamento.','bad');return}
-    const dest=$('devDest').value;
-    e.status=dest=='Manutenção/Teste'?'Em manutenção':dest=='Inutilizado'?'Inutilizado':dest=='Perdido'?'Perdido':'Em estoque';
-    e.local=dest=='Manutenção/Teste'?'Bancada técnica':dest;
-    e.tecnicoAtual=e.status=='Em estoque'?'':$('devTec').value;e.clienteAtual='';e.osAtual=$('devOS').value;e.motivoAtual=$('devMot').value||$('devCond').value;e.inutilizadoObs=$('devObs').value;
-    await upd('equipamentos',e.id,toEq(e));await mov(e,'Devolução',{tec:$('devTec').value,dest,os:e.osAtual,mot:e.motivoAtual,cond:$('devCond').value,obs:$('devObs').value});
-    dsel=null;['dq','devOS','devMot','devObs'].forEach(i=>$(i).value='');render();msg('devMsg','Devolução registrada.','ok');
+    const saved=fromEq(await rpcOne('rpc_registrar_devolucao_equipamento',{
+      p_equipamento_id:e.id,p_tecnico:$('devTec').value,p_condicao:$('devCond').value,p_destino:$('devDest').value,
+      p_os:$('devOS').value,p_motivo:$('devMot').value,p_observacao:$('devObs').value,p_client_operation_id:opId()
+    }));
+    Object.assign(e,saved);
+    dsel=null;['dq','devOS','devMot','devObs'].forEach(i=>$(i).value='');
+    await loadAll();render();msg('devMsg','Devolução registrada.','ok');
   }catch(e){msg('devMsg','Erro: '+e.message,'bad')}
 }
 async function manut(){
   try{
     const e=D.equipamentos.find(x=>x.id==$('manEq').value);if(!e){msg('manMsg','Selecione equipamento.','bad');return}
-    const r=$('manRes').value;
-    e.status=r.startsWith('Aprovado')?'Em estoque':r.startsWith('Inutilizar')?'Inutilizado':'Em manutenção';
-    e.local=e.status=='Em estoque'?'Estoque central':r.startsWith('Enviar')?'Garantia':e.status=='Inutilizado'?'Inutilizado':'Bancada técnica';
-    e.motivoAtual=r;e.inutilizadoObs=$('manObs').value;
-    await upd('equipamentos',e.id,toEq(e));await mov(e,'Manutenção/Teste',{dest:e.local,mot:r,obs:$('manObs').value});$('manObs').value='';render();msg('manMsg','Resultado registrado.','ok');
+    const saved=fromEq(await rpcOne('rpc_registrar_manutencao_equipamento',{
+      p_equipamento_id:e.id,p_resultado:$('manRes').value,p_observacao:$('manObs').value,p_client_operation_id:opId()
+    }));
+    Object.assign(e,saved);$('manObs').value='';await loadAll();render();msg('manMsg','Resultado registrado.','ok')
   }catch(e){msg('manMsg','Erro: '+e.message,'bad')}
 }
 
@@ -130,10 +139,10 @@ async function addLocal(){try{const nome=$('locNome').value.trim(),tipo=$('locTi
 async function editLocal(id){try{const l=D.locais.find(x=>x.id==id);const nome=prompt('Nome do local:',l.nome);if(nome===null||!nome.trim())return;const tipo=prompt('Tipo do local:',l.tipo||'Outro');if(tipo===null)return;const saved=await upd('locais',id,{nome:nome.trim(),tipo:tipo.trim()||'Outro'});Object.assign(l,saved);render()}catch(e){alert('Erro: '+e.message)}}
 async function delLocal(id){try{const l=D.locais.find(x=>x.id==id);if(l.fixo){alert('Local fixo não pode ser excluído.');return}if(D.equipamentos.some(e=>e.local==l.nome)){alert('Local em uso por equipamento. Altere o local dos equipamentos antes.');return}if(!confirm('Excluir local '+l.nome+'?'))return;await del('locais',id);D.locais=D.locais.filter(x=>x.id!=id);render()}catch(e){alert('Erro: '+e.message)}}
 async function editEq(id){try{const e=D.equipamentos.find(x=>x.id==id);const status=prompt('Status:',e.status);if(status===null)return;const local=prompt('Local:',e.local||'');if(local===null)return;const tec=prompt('Técnico atual:',e.tecnicoAtual||'');if(tec===null)return;const cli=prompt('Cliente/local atual:',e.clienteAtual||'');if(cli===null)return;const os=prompt('OS/Contrato:',e.osAtual||'');if(os===null)return;const custo=prompt('Custo:',e.custo||0);if(custo===null)return;Object.assign(e,{status:status.trim(),local:local.trim(),tecnicoAtual:tec.trim(),clienteAtual:cli.trim(),osAtual:os.trim(),custo:Number(custo||0)});Object.assign(e,fromEq(await upd('equipamentos',id,toEq(e))));await mov(e,'Edição manual',{dest:e.local,tec:e.tecnicoAtual,cli:e.clienteAtual,os:e.osAtual,obs:'Alteração manual no cadastro do equipamento'});render()}catch(e){alert('Erro ao editar equipamento: '+e.message)}}
-async function delEq(id){try{const e=D.equipamentos.find(x=>x.id==id);if(!confirm('Excluir definitivamente o equipamento '+e.codigo+'?'))return;await del('equipamentos',id);D.equipamentos=D.equipamentos.filter(x=>x.id!=id);render()}catch(e){alert('Erro ao excluir equipamento: '+e.message)}}
-async function inutilizarEq(id){try{const e=D.equipamentos.find(x=>x.id==id);const motivo=prompt('Motivo da inutilização:',e.motivoAtual||'');if(motivo===null)return;e.status='Inutilizado';e.local='Inutilizado';e.motivoAtual=motivo;e.inutilizadoObs=motivo;Object.assign(e,fromEq(await upd('equipamentos',id,toEq(e))));await mov(e,'Inutilização',{dest:'Inutilizado',mot:motivo,obs:motivo});render()}catch(e){alert('Erro ao inutilizar: '+e.message)}}
+async function delEq(id){try{const e=D.equipamentos.find(x=>x.id==id);if(!e)return;const motivo=prompt('Motivo da baixa do equipamento '+e.codigo+':',e.motivoAtual||'');if(motivo===null)return;if(!motivo.trim()){alert('Informe o motivo da baixa.');return}const saved=fromEq(await rpcOne('rpc_baixar_equipamento',{p_equipamento_id:e.id,p_motivo:motivo.trim(),p_client_operation_id:opId()}));Object.assign(e,saved);await loadAll();render();alert('Equipamento baixado com histórico preservado: '+e.codigo)}catch(e){alert('Erro ao baixar equipamento: '+e.message)}}
+async function inutilizarEq(id){try{const e=D.equipamentos.find(x=>x.id==id);const motivo=prompt('Motivo da inutilização:',e.motivoAtual||'');if(motivo===null)return;if(!motivo.trim()){alert('Informe o motivo da inutilização.');return}const saved=fromEq(await rpcOne('rpc_registrar_manutencao_equipamento',{p_equipamento_id:e.id,p_resultado:'Inutilizar',p_observacao:motivo.trim(),p_client_operation_id:opId()}));Object.assign(e,saved);await loadAll();render()}catch(e){alert('Erro ao inutilizar: '+e.message)}}
 
-function techItems(nome){return D.equipamentos.filter(e=>e.tecnicoAtual==nome && !['Em estoque','Inutilizado','Perdido'].includes(e.status))}
+function techItems(nome){return D.equipamentos.filter(e=>isAtivo(e)&&e.tecnicoAtual==nome && !['Em estoque','Inutilizado','Perdido','Baixado'].includes(e.status))}
 function renderTechStock(){
   $('techStockBox').innerHTML=D.tecnicos.map(t=>{const itens=techItems(t.nome);const valor=itens.reduce((s,e)=>s+Number(e.custo||0),0);return `<div class="card"><h2>${esc(t.nome)} <span class="status">${itens.length} item(ns)</span> <span class="status ok">${br(valor)}</span></h2>${itens.length?`<div class="tbl"><table><thead><tr><th>Código</th><th>Modelo</th><th>MAC/SN</th><th>Status</th><th>Local</th><th>Cliente/backup</th><th>OS</th><th>Ações</th></tr></thead><tbody>${itens.map(e=>`<tr><td>${esc(e.codigo)}</td><td>${esc(e.tipo)} ${esc(e.marca)} ${esc(e.modelo)}</td><td>${esc(e.mac||e.serial||'')}</td><td>${esc(e.status)}</td><td>${esc(e.local||'')}</td><td>${esc(e.clienteAtual||'')}</td><td>${esc(e.osAtual||'')}</td><td><button onclick="editEq('${e.id}')">Editar</button><button class="warn" onclick="inutilizarEq('${e.id}')">Inutilizar</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="msg">Sem equipamento em posse.</div>'}</div>`}).join('')||'<div class="msg">Nenhum técnico cadastrado.</div>';
 }
@@ -152,17 +161,18 @@ function render(){
   ['local','movDest'].forEach(i=>{$(i).innerHTML=D.locais.map(l=>`<option>${esc(l.nome)}</option>`).join('')});
   if(D.locais.some(l=>l.nome==curLocal))$('local').value=curLocal;if(D.locais.some(l=>l.nome==curDest))$('movDest').value=curDest;
   ['movTec','devTec'].forEach(i=>{$(i).innerHTML='<option value="">Técnico</option>'+D.tecnicos.map(t=>`<option>${esc(t.nome)}</option>`).join('')});
-  const est=D.equipamentos.filter(e=>e.status=='Em estoque');
-  $('kTot').textContent=D.equipamentos.length;$('kEst').textContent=est.length;$('kTec').textContent=D.equipamentos.filter(e=>e.status=='Com técnico').length;$('kRua').textContent=D.equipamentos.filter(e=>['Na rua','Instalado cliente','Reservado'].includes(e.status)).length;
-  $('statusBox').innerHTML=['Em estoque','Com técnico','Instalado cliente','Na rua','Reservado','Em manutenção','Inutilizado','Perdido'].map(s=>`<div class="item"><b>${s}</b><span class="status">${D.equipamentos.filter(e=>e.status==s).length}</span></div>`).join('');
+  const ativos=D.equipamentos.filter(isAtivo);
+  const est=ativos.filter(e=>e.status=='Em estoque');
+  $('kTot').textContent=ativos.length;$('kEst').textContent=est.length;$('kTec').textContent=ativos.filter(e=>e.status=='Com técnico').length;$('kRua').textContent=ativos.filter(e=>['Na rua','Instalado cliente','Reservado'].includes(e.status)).length;
+  $('statusBox').innerHTML=['Em estoque','Com técnico','Instalado cliente','Na rua','Reservado','Em manutenção','Inutilizado','Perdido','Baixado'].map(s=>`<div class="item"><b>${s}</b><span class="status">${D.equipamentos.filter(e=>e.status==s).length}</span></div>`).join('');
   $('alertBox').innerHTML=D.modelos.map(m=>{const qtd=est.filter(e=>e.tipo==m.tipo&&e.marca==m.marca&&e.modelo==m.modelo).length;const min=Number(m.estoque_minimo||0);return min&&qtd<min?`<div class="item"><b>${esc(m.tipo)} ${esc(m.marca)} ${esc(m.modelo)}</b><span class="status bad">${qtd}/${min}</span></div>`:''}).join('')||'Nenhum alerta.';
   const f=N($('f').value);
-  $('eqT').innerHTML=D.equipamentos.filter(e=>N(Object.values(e).join(' ')).includes(f)).map(e=>`<tr><td>${esc(e.codigo)}</td><td>${esc(e.tipo)}</td><td>${esc(e.marca)}</td><td>${esc(e.modelo)}</td><td>${esc(e.mac||'')}</td><td>${esc(e.serial||'')}</td><td>${esc(e.status)}</td><td>${esc(e.local||'')}</td><td>${esc(e.tecnicoAtual||'')}</td><td>${esc(e.clienteAtual||'')}</td><td><button onclick="editEq('${e.id}')">Editar</button><button class="warn" onclick="inutilizarEq('${e.id}')">Inutilizar</button><button class="bad" onclick="delEq('${e.id}')">Excluir</button></td></tr>`).join('')||'<tr><td colspan="11">Nenhum equipamento.</td></tr>';
+  $('eqT').innerHTML=D.equipamentos.filter(e=>N(Object.values(e).join(' ')).includes(f)).map(e=>`<tr><td>${esc(e.codigo)}</td><td>${esc(e.tipo)}</td><td>${esc(e.marca)}</td><td>${esc(e.modelo)}</td><td>${esc(e.mac||'')}</td><td>${esc(e.serial||'')}</td><td>${esc(e.status)}</td><td>${esc(e.local||'')}</td><td>${esc(e.tecnicoAtual||'')}</td><td>${esc(e.clienteAtual||'')}</td><td><button onclick="editEq('${e.id}')">Editar</button><button class="warn" onclick="inutilizarEq('${e.id}')">Inutilizar</button>${isAtivo(e)?`<button class="bad" onclick="delEq('${e.id}')">Baixar</button>`:'<span class="status bad">Baixado</span>'}</td></tr>`).join('')||'<tr><td colspan="11">Nenhum equipamento.</td></tr>';
   $('estT').innerHTML=est.map(e=>`<tr><td>${esc(e.codigo)}</td><td>${esc(e.modelo)}</td><td>${esc(e.mac||e.serial||'')}</td><td>${esc(e.patrimonio)}</td><td>${br(e.custo)}</td><td><button onclick="editEq('${e.id}')">Editar</button><button class="warn" onclick="inutilizarEq('${e.id}')">Inutilizar</button></td></tr>`).join('')||'<tr><td colspan="6">Nenhum item em estoque.</td></tr>';
   $('modelTable').innerHTML=D.modelos.map(m=>{const qtd=est.filter(e=>e.tipo==m.tipo&&e.marca==m.marca&&e.modelo==m.modelo).length;return`<tr><td>${esc(m.tipo)}</td><td>${esc(m.marca)}</td><td>${esc(m.modelo)}</td><td>${br(m.custo_padrao)}</td><td>${m.estoque_minimo||0}</td><td>${m.estoque_ideal||0}</td><td>${qtd}</td><td><button onclick="editModelo('${m.id}')">Editar</button><button class="bad" onclick="delModelo('${m.id}')">Excluir</button></td></tr>`}).join('')||'<tr><td colspan="8">Nenhum modelo cadastrado.</td></tr>';
   $('tecList').innerHTML=D.tecnicos.map(t=>`<div class="item"><b>${esc(t.nome)}</b><span><button onclick="editTec('${t.id}')">Editar</button><button class="bad" onclick="delTec('${t.id}')">Excluir</button></span></div>`).join('')||'Nenhum técnico.';
   $('locList').innerHTML=D.locais.map(l=>`<div class="item"><b>${esc(l.nome)}</b><span>${esc(l.tipo||'Outro')} ${l.fixo?'<span class="status">Fixo</span>':`<button onclick="editLocal('${l.id}')">Editar</button><button class="bad" onclick="delLocal('${l.id}')">Excluir</button>`}</span></div>`).join('')||'Nenhum local.';
-  $('manEq').innerHTML='<option value="">Selecione</option>'+D.equipamentos.filter(e=>e.status=='Em manutenção').map(e=>`<option value="${e.id}">${esc(e.codigo)} • ${esc(e.modelo)}</option>`).join('');
+  $('manEq').innerHTML='<option value="">Selecione</option>'+D.equipamentos.filter(e=>isAtivo(e)&&e.status=='Em manutenção').map(e=>`<option value="${e.id}">${esc(e.codigo)} • ${esc(e.modelo)}</option>`).join('');
   const hf=N($('histFilter').value);
   $('histT').innerHTML=D.movimentos.filter(m=>N(Object.values(m).join(' ')).includes(hf)).map(m=>`<tr><td>${esc(m.data||'')}</td><td>${esc(m.tipo||'')}</td><td>${esc(m.codigo||'')}</td><td>${esc(m.mac||m.serial||'')}</td><td>${esc(m.tecnico||'')}</td><td>${esc(m.destino||'')}</td><td>${esc(m.cliente||'')}</td><td>${esc(m.os||'')}</td><td>${esc(m.status_final||'')}</td><td>${esc(m.obs||'')}</td></tr>`).join('')||'<tr><td colspan="10">Sem histórico.</td></tr>';
   renderTechStock();
