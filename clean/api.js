@@ -1,17 +1,32 @@
 let sb = null;
 
+const DEFAULT_URL = 'https://yuyeyawigbbjtzghkbbr.supabase.co';
+const DEFAULT_KEY = ['sb_publishable','_9DyOYVHN6035kbUjypbDkA_4zYHk_pI'].join('');
+
 export function cfg(){
-  try { return JSON.parse(localStorage.getItem('like_cfg_v26') || '{}'); }
-  catch(e){ return {}; }
+  try {
+    const saved = JSON.parse(localStorage.getItem('like_cfg_v26') || '{}');
+    return {
+      url: saved.url || DEFAULT_URL,
+      key: saved.key || DEFAULT_KEY,
+      email: saved.email || ''
+    };
+  } catch(e){
+    return { url: DEFAULT_URL, key: DEFAULT_KEY, email: '' };
+  }
 }
 
 export function save(c){
-  localStorage.setItem('like_cfg_v26', JSON.stringify({ ...cfg(), ...c }));
+  const current = cfg();
+  const next = { ...current, ...c };
+  localStorage.setItem('like_cfg_v26', JSON.stringify(next));
 }
 
 export function init(url, token){
-  if(!url || !token) throw new Error('Informe URL e chave do Supabase.');
-  sb = window.supabase.createClient(url, token);
+  const finalUrl = url || cfg().url;
+  const finalToken = token || cfg().key;
+  if(!finalUrl || !finalToken) throw new Error('Configuração do Supabase ausente.');
+  sb = window.supabase.createClient(finalUrl, finalToken);
   return sb;
 }
 
