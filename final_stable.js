@@ -41,7 +41,7 @@ function ensureTecnicosActions(){
  setTimeout(function(){if(window.tecnicosActionsFixBind)window.tecnicosActionsFixBind()},700);
 }
 function ensureCadastrosRpc(){
- loadOnce('cadastrosRpcGuardFinal','cadastros_rpc_guard.js?v=1');
+ loadOnce('cadastrosRpcGuardFinal','cadastros_rpc_guard.js?v=5a6');
  setTimeout(function(){if(window.cadastrosRpcGuardRun)window.cadastrosRpcGuardRun()},700);
 }
 window.relHardMsg=function(fn){var out=E('relOut');if(out){out.className='msg warn';out.innerHTML='O bloco visual carregou, mas a função '+fn+' ainda não terminou de carregar. Aguarde 5 segundos e clique novamente.'}}
