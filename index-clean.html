@@ -6,9 +6,9 @@
   <title>LIKE Estoque - Frontend Limpo</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="clean/styles.css?v=2">
-  <link rel="stylesheet" href="clean/login.css?v=1">
+  <link rel="stylesheet" href="clean/login.css?v=2">
 </head>
-<body>
+<body class="auth-locked">
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand"><strong>LIKE Estoque</strong><span>Frontend limpo • Etapas 5C-5K</span></div>
@@ -40,7 +40,7 @@
       <section id="page-cadastros" class="page"><div class="grid three"><form id="formModelo" class="card form-card"><h2>Produto / Modelo</h2><input id="modeloId" type="hidden"><input id="modeloTipo" placeholder="Tipo. Ex: ONT, Conector, Cabo"><input id="modeloMarca" placeholder="Marca"><input id="modeloNome" placeholder="Modelo"><div class="form-grid three-mini"><input id="modeloCusto" type="number" min="0" step="0.01" placeholder="Custo"><input id="modeloMin" type="number" min="0" step="1" placeholder="Mínimo"><input id="modeloIdeal" type="number" min="0" step="1" placeholder="Ideal"></div><select id="modeloCategoria"><option value="Patrimônio">Patrimônio</option><option value="Consumo">Consumo</option><option value="Material fechado">Material fechado</option></select><div class="actions"><button class="primary" type="submit">Salvar modelo</button><button class="secondary" type="button" id="btnModeloClear">Limpar</button></div><div id="modeloMsg" class="msg"></div></form><form id="formTecnico" class="card form-card"><h2>Técnico</h2><input id="tecnicoId" type="hidden"><input id="tecnicoNome" placeholder="Nome do técnico"><div class="actions"><button class="primary" type="submit">Salvar técnico</button><button class="secondary" type="button" id="btnTecnicoClear">Limpar</button></div><div id="tecnicoMsg" class="msg"></div></form><form id="formLocal" class="card form-card"><h2>Local</h2><input id="localId" type="hidden"><input id="localNome" placeholder="Nome do local"><select id="localTipo"><option>Estoque</option><option>Técnico</option><option>Cliente</option><option>Rua</option><option>Manutenção</option><option>Inutilizado</option><option>Outro</option></select><div class="actions"><button class="primary" type="submit">Salvar local</button><button class="secondary" type="button" id="btnLocalClear">Limpar</button></div><div id="localMsg" class="msg"></div></form></div><div class="card"><div class="table-head"><h2>Modelos ativos</h2><input id="filtroModelos" placeholder="Filtrar modelos"></div><div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Marca</th><th>Modelo</th><th>Categoria</th><th>Custo</th><th>Mínimo</th><th>Ideal</th><th>Ações</th></tr></thead><tbody id="tbodyModelos"></tbody></table></div></div><div class="grid two"><div class="card"><div class="table-head"><h2>Técnicos ativos</h2><input id="filtroTecnicos" placeholder="Filtrar técnicos"></div><div id="listaTecnicos" class="list"></div></div><div class="card"><div class="table-head"><h2>Locais ativos</h2><input id="filtroLocais" placeholder="Filtrar locais"></div><div id="listaLocais" class="list"></div></div></div></section>
     </main>
   </div>
-  <script type="module" src="clean/main.js?v=3"></script>
+  <script type="module" src="clean/main.js?v=4"></script>
   <script src="clean/login.js?v=1"></script>
   <script type="module" src="clean/dashboard.js?v=1"></script>
   <script type="module" src="clean/equipamentos.js?v=1"></script>
