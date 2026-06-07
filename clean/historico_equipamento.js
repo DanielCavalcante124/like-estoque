@@ -22,6 +22,8 @@ function dataCurta(v){
   if(!v) return '-';
   try{ return new Date(v + 'T00:00:00').toLocaleDateString('pt-BR'); }catch(e){ return String(v); }
 }
+function pdfText(v){ return String(v ?? '-').replace(/\s+/g,' ').trim() || '-'; }
+function fileSafe(v){ return String(v || 'equipamento').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'equipamento'; }
 
 function inject(){
   if(!$('navHistoricoClean')){
@@ -59,6 +61,7 @@ function inject(){
             <button class="primary" type="submit">Carregar histórico</button>
             <button class="secondary" id="historicoLimpar" type="button">Limpar</button>
             <button class="secondary" id="historicoCsv" type="button">Copiar CSV</button>
+            <button class="secondary" id="historicoPdf" type="button">Gerar PDF</button>
           </div>
         </form>
 
@@ -97,6 +100,7 @@ function inject(){
   $('historicoForm').onsubmit = carregarHistorico;
   $('historicoLimpar').onclick = limpar;
   $('historicoCsv').onclick = copiarCsv;
+  $('historicoPdf').onclick = gerarPdf;
   $('historicoBuscaEquipamento').oninput = renderEquipSelect;
   $('historicoEquipamento').onchange = () => { S.selecionado = equipamentoSelecionado(); renderResumo(); };
   $('historicoFiltro').oninput = renderHistorico;
@@ -199,6 +203,99 @@ async function copiarCsv(){
     msg('CSV copiado para a área de transferência.', 'ok');
   }catch(e){ msg(e.message || String(e), 'bad'); }
 }
+
+function addPdfText(doc, text, x, y, maxWidth, lineHeight=5){
+  const lines = doc.splitTextToSize(pdfText(text), maxWidth);
+  for(const line of lines){
+    if(y > 282){ doc.addPage(); y = 16; }
+    doc.text(line, x, y);
+    y += lineHeight;
+  }
+  return y;
+}
+function addPdfSectionTitle(doc, title, y){
+  if(y > 270){ doc.addPage(); y = 16; }
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(12);
+  doc.text(title, 12, y);
+  doc.setDrawColor(210);
+  doc.line(12, y + 2, 198, y + 2);
+  doc.setFont('helvetica','normal');
+  return y + 8;
+}
+function addFooter(doc){
+  const total = doc.getNumberOfPages();
+  for(let i=1;i<=total;i++){
+    doc.setPage(i);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(8);
+    doc.setTextColor(110);
+    doc.text(`Página ${i} de ${total}`, 12, 290);
+    doc.text('LIKE Estoque - Histórico de movimentações', 198, 290, { align:'right' });
+    doc.setTextColor(0);
+  }
+}
+async function gerarPdf(){
+  try{
+    const eq = S.selecionado || equipamentoSelecionado();
+    const rows = movimentosFiltrados();
+    if(!eq) throw new Error('Selecione um equipamento antes de gerar PDF.');
+    if(!S.historico.length) throw new Error('Carregue o histórico antes de gerar PDF.');
+    if(!rows.length) throw new Error('Nenhum movimento encontrado para gerar PDF.');
+    if(!window.jspdf?.jsPDF) throw new Error('Biblioteca jsPDF não carregou. Recarregue a página e tente novamente.');
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const generatedAt = new Date().toLocaleString('pt-BR');
+    let y = 14;
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(16);
+    doc.text('LIKE Estoque', 12, y);
+    doc.setFontSize(13);
+    doc.text('Relatório de movimentações do equipamento', 12, y + 8);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    doc.text(`Gerado em: ${generatedAt}`, 12, y + 15);
+    doc.text(`Movimentos no PDF: ${rows.length}`, 198, y + 15, { align:'right' });
+    y += 25;
+
+    y = addPdfSectionTitle(doc, 'Resumo do equipamento', y);
+    doc.setFontSize(10);
+    y = addPdfText(doc, `Código: ${eq.codigo || '-'} | Produto: ${nomeEq(eq) || '-'} | Identificação: ${eq.mac || eq.serial || eq.patrimonio || '-'}`, 12, y, 186);
+    y = addPdfText(doc, `Status atual: ${eq.status || '-'} | Local atual: ${eq.local || '-'} | Ativo: ${eq.ativo === false ? 'Não' : 'Sim'}`, 12, y, 186);
+    y = addPdfText(doc, `Vínculo atual: ${[eq.tecnico_atual, eq.cliente_atual, eq.os_atual].filter(Boolean).join(' | ') || '-'}`, 12, y, 186);
+    y = addPdfText(doc, `Motivo atual: ${eq.motivo_atual || eq.motivo_baixa || '-'}`, 12, y, 186);
+    y += 4;
+
+    y = addPdfSectionTitle(doc, 'Linha do tempo das movimentações', y);
+    doc.setFontSize(9);
+
+    rows.forEach((m, idx) => {
+      if(y > 260){ doc.addPage(); y = 16; }
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(10);
+      doc.text(`#${m.seq || idx + 1} - ${pdfText(m.tipo)}`, 12, y);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(9);
+      doc.text(`Data: ${dataCurta(m.data)} | Status: ${pdfText(m.status_final)} | Destino: ${pdfText(m.destino)}`, 12, y + 5);
+      y += 11;
+      y = addPdfText(doc, `Técnico/Cliente/OS: ${[m.tecnico, m.cliente, m.os].filter(Boolean).join(' | ') || '-'}`, 16, y, 178, 4.5);
+      y = addPdfText(doc, `Motivo/Condição: ${[m.motivo, m.condicao].filter(Boolean).join(' | ') || '-'}`, 16, y, 178, 4.5);
+      y = addPdfText(doc, `Observação: ${m.obs || '-'}`, 16, y, 178, 4.5);
+      y = addPdfText(doc, `Origem/Responsável: ${[m.origem, m.responsavel, m.fornecedor, m.nf].filter(Boolean).join(' | ') || '-'}`, 16, y, 178, 4.5);
+      doc.setDrawColor(230);
+      doc.line(12, y + 1, 198, y + 1);
+      y += 6;
+    });
+
+    addFooter(doc);
+    const filename = `historico_${fileSafe(eq.codigo || eq.mac || eq.serial || 'equipamento')}_${new Date().toISOString().slice(0,10)}.pdf`;
+    doc.save(filename);
+    msg(`PDF gerado: ${filename}`, 'ok');
+  }catch(e){ msg(e.message || String(e), 'bad'); }
+}
+
 function limpar(){
   ['historicoBuscaEquipamento','historicoEquipamento','historicoFiltro'].forEach(id=>{ if($(id)) $(id).value=''; });
   S.selecionado = null;
