@@ -29,8 +29,8 @@
             <div class="login-status"><span id="loginSessionStatus" class="login-pill">Aguardando login</span><span id="loginConfigStatus" class="login-pill">Verificando configuração</span></div>
             <h2>Entrar no sistema</h2><p>Use o mesmo e-mail e senha do Supabase.</p>
             <div class="form-grid two"><input id="loginEmail" autocomplete="username" placeholder="E-mail do usuário"><input id="loginPass" type="password" autocomplete="current-password" placeholder="Senha"></div>
-            <div class="login-actions"><button id="btnLogin" class="primary">Entrar</button><button id="loginAdvancedBtn" type="button" class="login-advanced-toggle">Configuração avançada</button></div>
-            <div id="loginAdvanced" class="login-advanced"><small>Use apenas se a conexão não estiver salva neste navegador.</small><input id="loginUrl" placeholder="URL do Supabase"><input id="loginKey" type="password" placeholder="Chave pública / publishable key"><button id="btnClearConfig" type="button" class="danger">Limpar configuração salva</button></div>
+            <div class="login-actions"><button id="btnLogin" class="primary">Entrar</button></div>
+            <div id="loginAdvanced" class="login-advanced"><small>Conexão ainda não configurada neste navegador.</small><input id="loginUrl" placeholder="URL do Supabase"><input id="loginKey" type="password" placeholder="Chave pública / publishable key"><button id="btnClearConfig" type="button" class="danger">Limpar configuração salva</button></div>
             <div class="login-note">A URL e a chave pública ficam salvas somente neste navegador. A senha não é salva pelo sistema.</div>
             <div id="loginMsg" class="msg">Acesso restrito. Entre com e-mail e senha autorizados.</div>
           </div>
@@ -41,7 +41,7 @@
     </main>
   </div>
   <script type="module" src="clean/main.js?v=4"></script>
-  <script src="clean/login.js?v=1"></script>
+  <script src="clean/login.js?v=2"></script>
   <script type="module" src="clean/dashboard.js?v=1"></script>
   <script type="module" src="clean/equipamentos.js?v=1"></script>
   <script type="module" src="clean/materiais.js?v=1"></script>
