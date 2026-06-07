@@ -1,11 +1,21 @@
-import { table, call } from './api.js';
+import { table, call } from './api.js?v=3';
 
 const S = { equipamentos: [], tecnicos: [], locais: [], filtro: '' };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const br = (v) => Number(v || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const ativo = (e) => e && e.ativo !== false && e.status !== 'Baixado';
 const opId = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2);
+const norm = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+const st = (e) => norm(e?.status);
+const isOne = (e, arr) => arr.includes(st(e));
+const isBaixado = (e) => e?.ativo === false || isOne(e, ['baixado','inutilizado','perdido']);
+const isAtivo = (e) => e && !isBaixado(e);
+const isEstoque = (e) => isAtivo(e) && isOne(e, ['em estoque']);
+const isTecnico = (e) => isAtivo(e) && isOne(e, ['com tecnico']);
+const isCliente = (e) => isAtivo(e) && isOne(e, ['instalado cliente','instalado no cliente','na rua','reservado']);
+const isManutencao = (e) => isAtivo(e) && (isOne(e, ['manutencao','em manutencao','defeituoso','testar']) || norm(e.local).includes('manutencao'));
+const isGarantia = (e) => isAtivo(e) && (isOne(e, ['garantia']) || norm(e.local).includes('garantia'));
+const isAguardandoBaixa = (e) => isAtivo(e) && isOne(e, ['aguardando baixa','descarte autorizado']);
 
 function msg(text, type=''){
   const el = $('eqCleanMsg');
@@ -47,6 +57,9 @@ function inject(){
             <option value="estoque">Em estoque</option>
             <option value="tecnico">Com técnico</option>
             <option value="cliente">Cliente/rua/reservado</option>
+            <option value="manutencao">Manutenção/teste</option>
+            <option value="garantia">Garantia</option>
+            <option value="aguardando_baixa">Aguardando baixa</option>
             <option value="baixados">Baixados/inativos</option>
           </select>
         </div>
@@ -57,6 +70,8 @@ function inject(){
         <div class="kpi"><small>Ativos</small><b id="eqKAtivos">0</b></div>
         <div class="kpi"><small>Em estoque</small><b id="eqKEstoque">0</b></div>
         <div class="kpi"><small>Com técnico</small><b id="eqKTecnico">0</b></div>
+        <div class="kpi"><small>Manutenção/Garantia</small><b id="eqKManutencao">0</b></div>
+        <div class="kpi"><small>Aguardando baixa</small><b id="eqKAguardandoBaixa">0</b></div>
       </div>
       <div class="card">
         <div class="table-wrap">
@@ -95,11 +110,14 @@ async function loadEquipamentos(){
 function passaStatus(e){
   const f = $('eqCleanStatus') ? $('eqCleanStatus').value : 'ativos';
   if(f === 'todos') return true;
-  if(f === 'ativos') return ativo(e);
-  if(f === 'estoque') return ativo(e) && e.status === 'Em estoque';
-  if(f === 'tecnico') return ativo(e) && e.status === 'Com técnico';
-  if(f === 'cliente') return ativo(e) && ['Instalado cliente','Instalado no cliente','Na rua','Reservado'].includes(e.status || '');
-  if(f === 'baixados') return !ativo(e) || ['Baixado','Inutilizado','Perdido'].includes(e.status || '');
+  if(f === 'ativos') return isAtivo(e);
+  if(f === 'estoque') return isEstoque(e);
+  if(f === 'tecnico') return isTecnico(e);
+  if(f === 'cliente') return isCliente(e);
+  if(f === 'manutencao') return isManutencao(e);
+  if(f === 'garantia') return isGarantia(e);
+  if(f === 'aguardando_baixa') return isAguardandoBaixa(e);
+  if(f === 'baixados') return isBaixado(e);
   return true;
 }
 
@@ -112,11 +130,13 @@ function listaFiltrada(){
 
 function renderEquipamentos(){
   const rows = listaFiltrada();
-  const ativos = S.equipamentos.filter(ativo);
+  const ativos = S.equipamentos.filter(isAtivo);
   $('eqKTotal').textContent = S.equipamentos.length;
   $('eqKAtivos').textContent = ativos.length;
-  $('eqKEstoque').textContent = ativos.filter(e=>e.status==='Em estoque').length;
-  $('eqKTecnico').textContent = ativos.filter(e=>e.status==='Com técnico').length;
+  $('eqKEstoque').textContent = ativos.filter(isEstoque).length;
+  $('eqKTecnico').textContent = ativos.filter(isTecnico).length;
+  $('eqKManutencao').textContent = ativos.filter(e=>isManutencao(e) || isGarantia(e)).length;
+  $('eqKAguardandoBaixa').textContent = ativos.filter(isAguardandoBaixa).length;
   $('eqCleanTbody').innerHTML = rows.map((e)=>`
     <tr>
       <td><b>${esc(e.codigo)}</b><br><small>${esc(e.patrimonio || '')}</small></td>
@@ -129,7 +149,7 @@ function renderEquipamentos(){
       <td>${br(e.custo)}</td>
       <td>
         <button class="secondary" data-edit-eq="${e.id}">Editar</button>
-        ${ativo(e) ? `<button class="warn" data-saida-eq="${e.id}">Saída</button><button class="secondary" data-dev-eq="${e.id}">Devolução</button><button class="danger" data-baixar-eq="${e.id}">Baixar</button>` : '<span class="badge">Inativo</span>'}
+        ${isAtivo(e) ? `<button class="warn" data-saida-eq="${e.id}">Saída</button><button class="secondary" data-dev-eq="${e.id}">Devolução</button><button class="danger" data-baixar-eq="${e.id}">Baixar</button>` : '<span class="badge">Inativo</span>'}
       </td>
     </tr>`).join('') || '<tr><td colspan="9">Nenhum equipamento encontrado.</td></tr>';
 }
