@@ -1,4 +1,4 @@
-const C = { pendente:null, ultimo:null, oldUuid:null, instalado:false };
+const C = { pendente:null, ultimo:null, oldUuid:null, instalado:false, observer:null, tentativas:0 };
 const $ = id => document.getElementById(id);
 const norm = v => String(v || '').trim();
 const safe = v => String(v || 'comprovante').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'comprovante';
@@ -19,7 +19,7 @@ function capture(){
   const opt = $('baixaEquipamento')?.selectedOptions?.[0];
   if(!opt || !opt.value) return null;
   return {
-    protocolo: 'aguardando-protocolo',
+    protocolo: 'CMP-' + Date.now(),
     gerado_em: nowBR(),
     equipamento_id: opt.value,
     equipamento: opt.textContent.trim(),
@@ -76,24 +76,13 @@ function pdf(c){
   if(y > 250){ doc.addPage(); y = 30; }
   doc.line(20, y, 90, y); doc.line(120, y, 190, y); y += 5;
   doc.text('Responsável pela baixa', 33, y); doc.text('Conferência / Auditoria', 138, y);
-  doc.setFontSize(8); doc.text('Documento gerado pelo LIKE Estoque • Baixa lógica sem exclusão física.', 12, 290);
+  doc.setFontSize(8); doc.text('Documento gerado pelo LIKE Estoque - baixa lógica sem exclusão física.', 12, 290);
   doc.save(`comprovante_baixa_${safe(c.equipamento)}_${today()}.pdf`);
 }
-function installUuidCapture(){
-  try{
-    if(C.oldUuid || !globalThis.crypto?.randomUUID) return;
-    C.oldUuid = globalThis.crypto.randomUUID.bind(globalThis.crypto);
-    globalThis.crypto.randomUUID = function(){
-      const id = C.oldUuid();
-      if(C.pendente) C.pendente.protocolo = id;
-      return id;
-    };
-  }catch(e){ /* fallback local protocol is acceptable for display */ }
-}
 function addUltimoButton(){
-  if($('baixaUltimoComprovante')) return;
+  if($('baixaUltimoComprovante')) return true;
   const limpar = $('baixaLimpar');
-  if(!limpar) return;
+  if(!limpar) return false;
   const b = document.createElement('button');
   b.id = 'baixaUltimoComprovante';
   b.className = 'secondary';
@@ -101,31 +90,53 @@ function addUltimoButton(){
   b.textContent = 'Último comprovante';
   b.onclick = () => C.ultimo ? copiar(C.ultimo) : msg('Nenhum comprovante gerado nesta sessão.', 'warn');
   limpar.insertAdjacentElement('beforebegin', b);
+  return true;
+}
+function processarSucesso(textoMsg){
+  if(!C.pendente || !/Baixa registrada/i.test(textoMsg || '')) return;
+  const c = C.pendente;
+  C.pendente = null;
+  C.ultimo = c;
+  let pdfMsg = '';
+  try{ pdf(c); pdfMsg = ' PDF gerado.'; }catch(e){ pdfMsg = ' PDF não gerado: ' + e.message + '.'; }
+  copiar(c, false).finally(() => msg('Baixa registrada. Comprovante WhatsApp copiado.' + pdfMsg, 'ok'));
 }
 function bind(){
-  if(C.instalado) return;
   const form = $('baixaForm');
   const msgEl = $('baixaMsg');
-  if(!form || !msgEl) return;
-  C.instalado = true;
-  installUuidCapture();
+  if(!form || !msgEl) return false;
+
   addUltimoButton();
-  form.addEventListener('submit', () => { C.pendente = capture(); }, true);
-  const obs = new MutationObserver(async () => {
-    const t = msgEl.textContent || '';
-    if(!C.pendente || !/Baixa registrada/i.test(t)) return;
-    const c = C.pendente;
-    C.pendente = null;
-    if(c.protocolo === 'aguardando-protocolo') c.protocolo = 'CMP-' + Date.now();
-    C.ultimo = c;
-    let pdfMsg = '';
-    try{ pdf(c); pdfMsg = ' PDF gerado.'; }catch(e){ pdfMsg = ' PDF não gerado: ' + e.message + '.'; }
-    await copiar(c, false);
-    msg('Baixa registrada. Comprovante WhatsApp copiado.' + pdfMsg, 'ok');
-  });
-  obs.observe(msgEl, { childList:true, characterData:true, subtree:true });
+
+  if(!form.dataset.comprovanteBaixaBound){
+    form.dataset.comprovanteBaixaBound = '1';
+    form.addEventListener('submit', () => {
+      const c = capture();
+      if(c) C.pendente = c;
+    }, true);
+  }
+
+  if(!C.observer || C.observer.target !== msgEl){
+    if(C.observer?.disconnect) C.observer.disconnect();
+    const obs = new MutationObserver(() => processarSucesso(msgEl.textContent || ''));
+    obs.observe(msgEl, { childList:true, characterData:true, subtree:true });
+    obs.target = msgEl;
+    C.observer = obs;
+  }
+
+  C.instalado = true;
+  return true;
 }
-function boot(){ bind(); setTimeout(bind, 500); setTimeout(bind, 1500); }
+function boot(){
+  bind();
+  const timer = setInterval(() => {
+    C.tentativas += 1;
+    const ok = bind();
+    if(ok && $('baixaUltimoComprovante')) clearInterval(timer);
+    if(C.tentativas > 80) clearInterval(timer);
+  }, 250);
+}
 boot();
-document.addEventListener('click', () => setTimeout(bind, 100));
+document.addEventListener('click', () => setTimeout(bind, 80));
+document.addEventListener('input', () => setTimeout(bind, 80));
 window.baixaComprovanteLoad = boot;
