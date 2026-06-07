@@ -1,10 +1,10 @@
-import { table, call } from './api.js?v=3';
+import { table } from './api.js?v=3';
 
 const S = { equipamentos: [], tecnicos: [], locais: [], filtro: '' };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const br = (v) => Number(v || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const opId = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2);
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const norm = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const st = (e) => norm(e?.status);
 const isOne = (e, arr) => arr.includes(st(e));
@@ -17,11 +17,25 @@ const isManutencao = (e) => isAtivo(e) && (isOne(e, ['manutencao','em manutencao
 const isGarantia = (e) => isAtivo(e) && (isOne(e, ['garantia']) || norm(e.local).includes('garantia'));
 const isAguardandoBaixa = (e) => isAtivo(e) && isOne(e, ['aguardando baixa','descarte autorizado']);
 
+const FLUXOS = {
+  saida: { nav:'navSaidaClean', load:'saidaCleanLoad', select:'saidaEquipamento', label:'Saída' },
+  devolucao: { nav:'navDevolucaoClean', load:'devolucaoCleanLoad', select:'devolucaoEquipamento', label:'Devolução' },
+  manutencao: { nav:'navManutencaoClean', load:'manutencaoCleanLoad', select:'manutencaoEquipamento', label:'Manutenção' },
+  baixa: { nav:'navBaixaClean', load:'baixaCleanLoad', select:'baixaEquipamento', label:'Baixa' },
+  historico: { nav:'navHistoricoClean', load:'historicoCleanLoad', select:'historicoEquipamento', form:'historicoForm', label:'Histórico' }
+};
+
 function msg(text, type=''){
   const el = $('eqCleanMsg');
   if(!el) return;
   el.textContent = text;
   el.className = 'msg show ' + type;
+}
+function nomeEq(e){ return [e.tipo,e.marca,e.modelo].filter(Boolean).join(' '); }
+function getEq(id){
+  const e = S.equipamentos.find(x=>x.id===id);
+  if(!e) throw new Error('Equipamento não encontrado na lista carregada.');
+  return e;
 }
 
 function inject(){
@@ -45,7 +59,7 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Equipamentos</h2>
-            <p>Versão limpa. Editar, baixar, saída e devolução passam por RPC no Supabase.</p>
+            <p>Consulta central. Movimentações devem ser feitas nas telas padronizadas de Saída, Devolução, Manutenção, Baixa e Histórico.</p>
           </div>
           <button id="eqCleanReload" class="secondary">Recarregar equipamentos</button>
         </div>
@@ -128,6 +142,18 @@ function listaFiltrada(){
     .filter((e)=>!f || JSON.stringify(e).toLowerCase().includes(f));
 }
 
+function renderAcoes(e){
+  const id = esc(e.id);
+  const historico = `<button class="secondary" data-open-historico-eq="${id}">Histórico</button>`;
+  if(!isAtivo(e)) return `${historico}<span class="badge">Inativo</span>`;
+  return `
+    ${historico}
+    <button class="warn" data-open-saida-eq="${id}">Saída</button>
+    <button class="secondary" data-open-devolucao-eq="${id}">Devolução</button>
+    <button class="secondary" data-open-manutencao-eq="${id}">Manutenção</button>
+    <button class="danger" data-open-baixa-eq="${id}">Baixa</button>`;
+}
+
 function renderEquipamentos(){
   const rows = listaFiltrada();
   const ativos = S.equipamentos.filter(isAtivo);
@@ -140,119 +166,50 @@ function renderEquipamentos(){
   $('eqCleanTbody').innerHTML = rows.map((e)=>`
     <tr>
       <td><b>${esc(e.codigo)}</b><br><small>${esc(e.patrimonio || '')}</small></td>
-      <td>${esc([e.tipo,e.marca,e.modelo].filter(Boolean).join(' '))}</td>
+      <td>${esc(nomeEq(e))}</td>
       <td>${esc(e.mac || e.serial || '-')}</td>
       <td><span class="badge">${esc(e.status)}</span></td>
       <td>${esc(e.local || '-')}</td>
       <td>${esc(e.tecnico_atual || '-')}</td>
       <td>${esc(e.cliente_atual || '-')}<br><small>${esc(e.os_atual || '')}</small></td>
       <td>${br(e.custo)}</td>
-      <td>
-        <button class="secondary" data-edit-eq="${e.id}">Editar</button>
-        ${isAtivo(e) ? `<button class="warn" data-saida-eq="${e.id}">Saída</button><button class="secondary" data-dev-eq="${e.id}">Devolução</button><button class="danger" data-baixar-eq="${e.id}">Baixar</button>` : '<span class="badge">Inativo</span>'}
-      </td>
+      <td><div class="actions">${renderAcoes(e)}</div></td>
     </tr>`).join('') || '<tr><td colspan="9">Nenhum equipamento encontrado.</td></tr>';
 }
 
-function getEq(id){
-  const e = S.equipamentos.find(x=>x.id===id);
-  if(!e) throw new Error('Equipamento não encontrado na lista carregada.');
-  return e;
-}
+async function abrirFluxo(tipo, id){
+  const eq = getEq(id);
+  const f = FLUXOS[tipo];
+  if(!f) throw new Error('Fluxo inválido.');
+  const nav = $(f.nav);
+  if(!nav) throw new Error(`Tela ${f.label} não encontrada. Recarregue a página.`);
 
-async function editarEq(id){
-  const e = getEq(id);
-  const status = prompt('Status:', e.status || ''); if(status === null) return;
-  const local = prompt('Local:', e.local || ''); if(local === null) return;
-  const tecnico = prompt('Técnico atual:', e.tecnico_atual || ''); if(tecnico === null) return;
-  const cliente = prompt('Cliente/local atual:', e.cliente_atual || ''); if(cliente === null) return;
-  const os = prompt('OS/Contrato:', e.os_atual || ''); if(os === null) return;
-  const motivo = prompt('Motivo/observação atual:', e.motivo_atual || ''); if(motivo === null) return;
-  const custo = prompt('Custo:', e.custo || 0); if(custo === null) return;
-  msg('Editando equipamento via RPC...', 'warn');
-  await call('rpc_editar_equipamento_admin', {
-    p_equipamento_id: id,
-    p_status: status.trim(),
-    p_local: local.trim(),
-    p_tecnico_atual: tecnico.trim(),
-    p_cliente_atual: cliente.trim(),
-    p_os_atual: os.trim(),
-    p_motivo_atual: motivo.trim(),
-    p_custo: Number(custo || 0),
-    p_observacao: 'Edição pela tela limpa de equipamentos',
-    p_client_operation_id: opId()
-  });
-  await loadEquipamentos();
-  msg('Equipamento editado com movimento e auditoria.', 'ok');
-}
+  msg(`Abrindo ${f.label} para ${eq.codigo || eq.mac || eq.serial || 'equipamento'}...`, 'warn');
+  nav.click();
+  await sleep(250);
+  if(typeof window[f.load] === 'function') await window[f.load]();
+  await sleep(50);
 
-async function baixarEq(id){
-  const e = getEq(id);
-  const motivo = prompt('Motivo da baixa de '+(e.codigo || id)+':', e.motivo_baixa || e.motivo_atual || '');
-  if(motivo === null) return;
-  if(!motivo.trim()) throw new Error('Informe o motivo da baixa.');
-  msg('Baixando equipamento via RPC...', 'warn');
-  await call('rpc_baixar_equipamento', { p_equipamento_id:id, p_motivo:motivo.trim(), p_client_operation_id:opId() });
-  await loadEquipamentos();
-  msg('Equipamento baixado com histórico preservado.', 'ok');
-}
+  const select = $(f.select);
+  if(!select) throw new Error(`Campo de seleção da tela ${f.label} não encontrado.`);
+  select.value = id;
+  select.dispatchEvent(new Event('change', { bubbles:true }));
 
-async function saidaEq(id){
-  const e = getEq(id);
-  const movTipo = prompt('Tipo de saída:', 'Saída para técnico'); if(movTipo === null) return;
-  const tecnico = prompt('Técnico:', e.tecnico_atual || ''); if(tecnico === null) return;
-  const destino = prompt('Destino/local:', e.local || 'Técnico'); if(destino === null) return;
-  const cliente = prompt('Cliente/local do cliente:', e.cliente_atual || ''); if(cliente === null) return;
-  const os = prompt('OS/Contrato:', e.os_atual || ''); if(os === null) return;
-  const motivo = prompt('Motivo:', e.motivo_atual || ''); if(motivo === null) return;
-  const obs = prompt('Observação:', 'Saída pela tela limpa de equipamentos'); if(obs === null) return;
-  msg('Registrando saída via RPC...', 'warn');
-  await call('rpc_registrar_saida_equipamento', {
-    p_equipamento_id:id,
-    p_mov_tipo:movTipo.trim(),
-    p_tecnico:tecnico.trim(),
-    p_destino:destino.trim(),
-    p_cliente:cliente.trim(),
-    p_os:os.trim(),
-    p_motivo:motivo.trim(),
-    p_observacao:obs.trim(),
-    p_client_operation_id:opId()
-  });
-  await loadEquipamentos();
-  msg('Saída registrada com segurança.', 'ok');
-}
-
-async function devolucaoEq(id){
-  const e = getEq(id);
-  const tecnico = prompt('Técnico que devolveu:', e.tecnico_atual || ''); if(tecnico === null) return;
-  const condicao = prompt('Condição de retorno:', 'Usado funcionando'); if(condicao === null) return;
-  const destino = prompt('Destino:', 'Estoque central'); if(destino === null) return;
-  const os = prompt('OS/Contrato:', e.os_atual || ''); if(os === null) return;
-  const motivo = prompt('Motivo:', 'Devolução pela tela limpa'); if(motivo === null) return;
-  const obs = prompt('Observação:', 'Devolução pela tela limpa de equipamentos'); if(obs === null) return;
-  msg('Registrando devolução via RPC...', 'warn');
-  await call('rpc_registrar_devolucao_equipamento', {
-    p_equipamento_id:id,
-    p_tecnico:tecnico.trim(),
-    p_condicao:condicao.trim(),
-    p_destino:destino.trim(),
-    p_os:os.trim(),
-    p_motivo:motivo.trim(),
-    p_observacao:obs.trim(),
-    p_client_operation_id:opId()
-  });
-  await loadEquipamentos();
-  msg('Devolução registrada com segurança.', 'ok');
+  if(f.form){
+    await sleep(50);
+    $(f.form)?.dispatchEvent(new Event('submit', { bubbles:true, cancelable:true }));
+  }
 }
 
 document.addEventListener('click', async (ev)=>{
   const btn = ev.target.closest('button');
   if(!btn) return;
   try{
-    if(btn.dataset.editEq) await editarEq(btn.dataset.editEq);
-    if(btn.dataset.baixarEq) await baixarEq(btn.dataset.baixarEq);
-    if(btn.dataset.saidaEq) await saidaEq(btn.dataset.saidaEq);
-    if(btn.dataset.devEq) await devolucaoEq(btn.dataset.devEq);
+    if(btn.dataset.openSaidaEq) await abrirFluxo('saida', btn.dataset.openSaidaEq);
+    if(btn.dataset.openDevolucaoEq) await abrirFluxo('devolucao', btn.dataset.openDevolucaoEq);
+    if(btn.dataset.openManutencaoEq) await abrirFluxo('manutencao', btn.dataset.openManutencaoEq);
+    if(btn.dataset.openBaixaEq) await abrirFluxo('baixa', btn.dataset.openBaixaEq);
+    if(btn.dataset.openHistoricoEq) await abrirFluxo('historico', btn.dataset.openHistoricoEq);
   }catch(e){ msg(e.message || String(e), 'bad'); }
 });
 
