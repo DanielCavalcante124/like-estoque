@@ -6,24 +6,42 @@
   <title>LIKE Estoque - Frontend Limpo</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="clean/styles.css?v=2">
+  <link rel="stylesheet" href="clean/login.css?v=1">
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <div class="brand"><strong>LIKE Estoque</strong><span>Frontend limpo • Etapas 5C-5I.1</span></div>
+      <div class="brand"><strong>LIKE Estoque</strong><span>Frontend limpo • Etapas 5C-5K</span></div>
       <button class="nav active" data-page="dashboard">Dashboard</button>
       <button class="nav" data-page="cadastros">Cadastros</button>
       <a class="legacy-link" href="index.html">Voltar para app atual</a>
-      <div class="session-box"><b id="sessionStatus">Offline</b><small id="sessionUser">Faça login</small></div>
+      <div class="session-box offline"><b id="sessionStatus">Offline</b><small id="sessionUser">Faça login</small></div>
     </aside>
     <main class="main">
       <header class="topbar"><div><h1 id="pageTitle">Dashboard</h1><p>Versão limpa sem patch27, patch28, patch29, patch30, final_stable ou guards antigos.</p></div><div class="top-actions"><button id="btnReload" class="secondary">Recarregar</button><button id="btnLogout" class="danger">Sair</button></div></header>
-      <section id="loginPanel" class="card login-card"><h2>Acesso</h2><p>Use o mesmo usuário do Supabase. Se você já entrou no app atual, URL e chave devem preencher sozinhas.</p><div class="form-grid two"><input id="loginUrl" placeholder="URL do Supabase"><input id="loginKey" placeholder="Chave pública / publishable key"></div><div class="form-grid two"><input id="loginEmail" placeholder="E-mail"><input id="loginPass" type="password" placeholder="Senha"></div><button id="btnLogin" class="primary">Entrar</button><div id="loginMsg" class="msg"></div></section>
+      <section id="loginPanel" class="card login-card">
+        <div class="login-shell">
+          <div class="login-hero">
+            <div><div class="login-logo">LIKE internet<span>Controle técnico de estoque</span></div><h2>Acesso operacional restrito</h2><p>Entre com seu usuário autorizado para movimentar equipamentos, materiais, técnicos e relatórios.</p></div>
+            <div class="login-points"><div>Banco Supabase com autenticação</div><div>Operações críticas por RPC</div><div>Histórico e auditoria preservados</div></div>
+          </div>
+          <div class="login-form">
+            <div class="login-status"><span id="loginSessionStatus" class="login-pill">Aguardando login</span><span id="loginConfigStatus" class="login-pill">Verificando configuração</span></div>
+            <h2>Entrar no sistema</h2><p>Use o mesmo e-mail e senha do Supabase.</p>
+            <div class="form-grid two"><input id="loginEmail" autocomplete="username" placeholder="E-mail do usuário"><input id="loginPass" type="password" autocomplete="current-password" placeholder="Senha"></div>
+            <div class="login-actions"><button id="btnLogin" class="primary">Entrar</button><button id="loginAdvancedBtn" type="button" class="login-advanced-toggle">Configuração avançada</button></div>
+            <div id="loginAdvanced" class="login-advanced"><small>Use apenas se a conexão não estiver salva neste navegador.</small><input id="loginUrl" placeholder="URL do Supabase"><input id="loginKey" type="password" placeholder="Chave pública / publishable key"><button id="btnClearConfig" type="button" class="danger">Limpar configuração salva</button></div>
+            <div class="login-note">A URL e a chave pública ficam salvas somente neste navegador. A senha não é salva pelo sistema.</div>
+            <div id="loginMsg" class="msg">Acesso restrito. Entre com e-mail e senha autorizados.</div>
+          </div>
+        </div>
+      </section>
       <section id="page-dashboard" class="page active"><div class="card"><h2>Dashboard carregando...</h2><p>Aguarde o módulo limpo consolidado carregar.</p></div></section>
       <section id="page-cadastros" class="page"><div class="grid three"><form id="formModelo" class="card form-card"><h2>Produto / Modelo</h2><input id="modeloId" type="hidden"><input id="modeloTipo" placeholder="Tipo. Ex: ONT, Conector, Cabo"><input id="modeloMarca" placeholder="Marca"><input id="modeloNome" placeholder="Modelo"><div class="form-grid three-mini"><input id="modeloCusto" type="number" min="0" step="0.01" placeholder="Custo"><input id="modeloMin" type="number" min="0" step="1" placeholder="Mínimo"><input id="modeloIdeal" type="number" min="0" step="1" placeholder="Ideal"></div><select id="modeloCategoria"><option value="Patrimônio">Patrimônio</option><option value="Consumo">Consumo</option><option value="Material fechado">Material fechado</option></select><div class="actions"><button class="primary" type="submit">Salvar modelo</button><button class="secondary" type="button" id="btnModeloClear">Limpar</button></div><div id="modeloMsg" class="msg"></div></form><form id="formTecnico" class="card form-card"><h2>Técnico</h2><input id="tecnicoId" type="hidden"><input id="tecnicoNome" placeholder="Nome do técnico"><div class="actions"><button class="primary" type="submit">Salvar técnico</button><button class="secondary" type="button" id="btnTecnicoClear">Limpar</button></div><div id="tecnicoMsg" class="msg"></div></form><form id="formLocal" class="card form-card"><h2>Local</h2><input id="localId" type="hidden"><input id="localNome" placeholder="Nome do local"><select id="localTipo"><option>Estoque</option><option>Técnico</option><option>Cliente</option><option>Rua</option><option>Manutenção</option><option>Inutilizado</option><option>Outro</option></select><div class="actions"><button class="primary" type="submit">Salvar local</button><button class="secondary" type="button" id="btnLocalClear">Limpar</button></div><div id="localMsg" class="msg"></div></form></div><div class="card"><div class="table-head"><h2>Modelos ativos</h2><input id="filtroModelos" placeholder="Filtrar modelos"></div><div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Marca</th><th>Modelo</th><th>Categoria</th><th>Custo</th><th>Mínimo</th><th>Ideal</th><th>Ações</th></tr></thead><tbody id="tbodyModelos"></tbody></table></div></div><div class="grid two"><div class="card"><div class="table-head"><h2>Técnicos ativos</h2><input id="filtroTecnicos" placeholder="Filtrar técnicos"></div><div id="listaTecnicos" class="list"></div></div><div class="card"><div class="table-head"><h2>Locais ativos</h2><input id="filtroLocais" placeholder="Filtrar locais"></div><div id="listaLocais" class="list"></div></div></div></section>
     </main>
   </div>
-  <script type="module" src="clean/main.js?v=2"></script>
+  <script type="module" src="clean/main.js?v=3"></script>
+  <script src="clean/login.js?v=1"></script>
   <script type="module" src="clean/dashboard.js?v=1"></script>
   <script type="module" src="clean/equipamentos.js?v=1"></script>
   <script type="module" src="clean/materiais.js?v=1"></script>
