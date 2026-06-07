@@ -45,4 +45,5 @@ export async function signIn(email, password){
 export async function signOut(){ await db().auth.signOut(); }
 export async function session(){ const r = await db().auth.getSession(); if(r.error) throw r.error; return r.data.session; }
 export async function table(name, order='created_at', asc=false){ const r = await db().from(name).select('*').order(order,{ascending:asc}); if(r.error) throw r.error; return r.data || []; }
-export async function call(name, params){ const r = await db().rpc(name, params || {}); if(r.error) throw r.error; return Array.isArray(r.data) ? r.data[0] : r.data; }
+export async function call(name, params){ const r = await db().rpc(name, params || {}); if(r.error) throw r.error; return r.data; }
+export function first(data){ return Array.isArray(data) ? data[0] : data; }
