@@ -1,12 +1,13 @@
 import { table, call, first } from './api.js?v=3';
 import { openMovimentacaoModal } from './movimentacao_modal.js?v=1';
 
-const S = { equipamentos: [], tecnicos: [], locais: [], selecionado: null };
+const S = { equipamentos: [], tecnicos: [], locais: [], selecionado: null, ultimoComprovante: null };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const opId = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2);
+const opId = () => globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8); return v.toString(16); });
 const ativo = (x) => x && x.ativo !== false;
 const norm = (v) => String(v || '').trim();
+const safeFile = (v) => String(v || 'saida').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'saida';
 let bound = false;
 
 function msg(text, type=''){
@@ -15,8 +16,10 @@ function msg(text, type=''){
   el.textContent = text;
   el.className = 'msg show ' + type;
 }
-function nomeEq(e){ return [e.tipo,e.marca,e.modelo].filter(Boolean).join(' '); }
+function nomeEq(e){ return [e?.tipo,e?.marca,e?.modelo].filter(Boolean).join(' ') || e?.codigo || '-'; }
 function identificacao(e){ return [e.codigo, e.mac, e.serial, nomeEq(e)].filter(Boolean).join(' • '); }
+function nowBR(){ return new Date().toLocaleString('pt-BR'); }
+function todayFile(){ return new Date().toISOString().slice(0,10); }
 function isDisponivel(e){
   const status = String(e.status || '').toLowerCase();
   const blocked = ['inutilizado','perdido','baixado','manutenção','em manutenção','em manutencao','com técnico','com tecnico','instalado cliente','instalado no cliente','na rua'];
@@ -53,7 +56,7 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Saída de equipamento</h2>
-            <p>Movimenta equipamento disponível para técnico, cliente, rua, reserva ou manutenção via RPC.</p>
+            <p>Movimenta equipamento disponível via RPC e gera comprovante PDF/WhatsApp da saída.</p>
           </div>
           <button id="saidaReload" class="secondary">Recarregar dados</button>
         </div>
@@ -86,6 +89,7 @@ function inject(){
           <input id="saidaObs" placeholder="Observação">
           <div class="actions">
             <button class="primary" type="submit">Revisar saída</button>
+            <button class="secondary" id="saidaUltimoComprovante" type="button">Último comprovante</button>
             <button class="secondary" id="saidaLimpar" type="button">Limpar</button>
           </div>
         </form>
@@ -117,6 +121,7 @@ function inject(){
   $('saidaReload').onclick = () => loadSaida().catch(e=>msg(e.message,'bad'));
   $('saidaForm').onsubmit = abrirConfirmacao;
   $('saidaLimpar').onclick = limparForm;
+  $('saidaUltimoComprovante').onclick = copiarUltimoComprovante;
   $('saidaBuscaEquipamento').oninput = renderEquipSelect;
   $('saidaEquipamento').onchange = () => { S.selecionado = equipamentoSelecionado(); renderPreview(); };
   $('saidaTipo').onchange = () => { ajustarCamposPorTipo(); renderPreview(); };
@@ -228,7 +233,7 @@ function renderPreview(){
   let p;
   try{ p = payload(); }
   catch(e){ $('saidaPreview').innerHTML = `<div class="item"><b>Pendente</b><small>${esc(e.message)}</small></div>`; $('saidaRegra').textContent = e.message; return; }
-  $('saidaRegra').textContent = 'Revise os dados antes de confirmar a saída.';
+  $('saidaRegra').textContent = 'Revise os dados antes de confirmar a saída. Após confirmar, o sistema gera PDF e copia WhatsApp.';
   $('saidaPreview').innerHTML = resumoHtml(p);
 }
 async function abrirConfirmacao(ev){
@@ -237,16 +242,109 @@ async function abrirConfirmacao(ev){
     const p = payload();
     const ok = await openMovimentacaoModal({
       title: 'Confirmar saída',
-      subtitle: 'A saída altera status, local e histórico do equipamento.',
+      subtitle: 'A saída altera status, local e histórico do equipamento. Depois da confirmação será gerado comprovante PDF e texto WhatsApp.',
       html: resumoHtml(p),
-      confirmText: 'Confirmar saída'
+      confirmText: 'Confirmar saída e gerar comprovante'
     });
     if(ok) await confirmarSaida(p);
   }catch(e){ msg(e.message,'bad'); renderPreview(); }
 }
+
+function snapshot(p, result, protocolo){
+  return {
+    protocolo,
+    gerado_em: nowBR(),
+    tipo: p.tipo,
+    tecnico: p.tecnico,
+    cliente: p.cliente,
+    os: p.os,
+    destino: p.destino,
+    motivo: p.motivo,
+    obs: p.obs,
+    status_final: result?.status || result?.status_final || 'Atualizado',
+    equipamento: {
+      codigo: result?.codigo || p.eq.codigo,
+      patrimonio: result?.patrimonio || p.eq.patrimonio,
+      mac: result?.mac || p.eq.mac,
+      serial: result?.serial || p.eq.serial,
+      tipo: result?.tipo || p.eq.tipo,
+      marca: result?.marca || p.eq.marca,
+      modelo: result?.modelo || p.eq.modelo
+    }
+  };
+}
+function textoComprovante(s){
+  const linhas = [];
+  linhas.push('✅ COMPROVANTE DE SAÍDA DE EQUIPAMENTO');
+  linhas.push('Protocolo: ' + (s.protocolo || '-'));
+  linhas.push('Data/Hora: ' + (s.gerado_em || nowBR()));
+  linhas.push('Movimento: ' + (s.tipo || '-'));
+  linhas.push('Destino: ' + (s.destino || '-'));
+  if(s.tecnico) linhas.push('Técnico: ' + s.tecnico);
+  if(s.cliente) linhas.push('Cliente/Local: ' + s.cliente);
+  linhas.push('OS/Ref: ' + (s.os || 'Não informada'));
+  if(s.motivo) linhas.push('Motivo: ' + s.motivo);
+  if(s.obs) linhas.push('Obs: ' + s.obs);
+  linhas.push('');
+  linhas.push('EQUIPAMENTO:');
+  linhas.push(`${s.equipamento.codigo || '-'} | ${nomeEq(s.equipamento)} | MAC/SN: ${s.equipamento.mac || s.equipamento.serial || '-'} | Patrimônio: ${s.equipamento.patrimonio || '-'}`);
+  linhas.push('Status final: ' + (s.status_final || '-'));
+  linhas.push('');
+  linhas.push('Recebi/conferi o equipamento acima conforme movimentação registrada.');
+  return linhas.join('\n');
+}
+async function copiarTexto(texto, okMsg){
+  try{
+    await navigator.clipboard.writeText(texto);
+    if(okMsg) msg(okMsg, 'ok');
+  }catch(e){
+    window.prompt('Copie o comprovante:', texto);
+  }
+}
+async function copiarUltimoComprovante(){
+  if(!S.ultimoComprovante) return msg('Nenhum comprovante gerado nesta sessão.', 'warn');
+  await copiarTexto(textoComprovante(S.ultimoComprovante), 'Último comprovante copiado para WhatsApp.');
+}
+function addPdfText(doc, text, x, y, maxWidth, lineHeight=5){
+  const lines = doc.splitTextToSize(String(text ?? '-'), maxWidth);
+  for(const line of lines){
+    if(y > 282){ doc.addPage(); y = 16; }
+    doc.text(line, x, y); y += lineHeight;
+  }
+  return y;
+}
+function gerarPdf(s){
+  if(!window.jspdf?.jsPDF) throw new Error('Biblioteca jsPDF não carregou.');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  let y = 14;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text('LIKE Estoque', 12, y); y += 8;
+  doc.setFontSize(13); doc.text('Comprovante de saída de equipamento', 12, y); y += 7;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  y = addPdfText(doc, `Protocolo: ${s.protocolo || '-'} | Gerado em: ${s.gerado_em || nowBR()}`, 12, y, 186);
+  y = addPdfText(doc, `Movimento: ${s.tipo || '-'} | Destino: ${s.destino || '-'} | Status final: ${s.status_final || '-'}`, 12, y, 186);
+  y = addPdfText(doc, `Técnico: ${s.tecnico || '-'} | Cliente/Local: ${s.cliente || '-'} | OS/Ref: ${s.os || 'Não informada'}`, 12, y, 186);
+  y = addPdfText(doc, `Motivo: ${s.motivo || '-'} | Observação: ${s.obs || '-'}`, 12, y, 186);
+  y += 4; doc.setDrawColor(210); doc.line(12, y, 198, y); y += 7;
+  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Equipamento', 12, y); y += 7;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  y = addPdfText(doc, `Código: ${s.equipamento.codigo || '-'} | Patrimônio: ${s.equipamento.patrimonio || '-'}`, 12, y, 186);
+  y = addPdfText(doc, `Modelo: ${nomeEq(s.equipamento)}`, 12, y, 186);
+  y = addPdfText(doc, `MAC/SN: ${s.equipamento.mac || s.equipamento.serial || '-'}`, 12, y, 186);
+  y += 20;
+  if(y > 250){ doc.addPage(); y = 30; }
+  doc.setDrawColor(120); doc.line(20, y, 90, y); doc.line(120, y, 190, y); y += 5;
+  doc.setFontSize(9); doc.text('Responsável pela entrega', 33, y); doc.text('Recebedor / Conferência', 137, y);
+  doc.setFontSize(8); doc.setTextColor(110); doc.text('Documento gerado pelo LIKE Estoque • Saída comum.', 12, 290); doc.setTextColor(0);
+  const filename = `comprovante_saida_${safeFile(s.equipamento.codigo || s.tecnico)}_${todayFile()}.pdf`;
+  doc.save(filename);
+  return filename;
+}
+
 async function confirmarSaida(p){
   try{
     msg('Registrando saída via RPC...', 'warn');
+    const protocolo = opId();
     const result = first(await call('rpc_registrar_saida_equipamento', {
       p_equipamento_id: p.eq.id,
       p_mov_tipo: p.tipo,
@@ -256,9 +354,20 @@ async function confirmarSaida(p){
       p_os: p.os,
       p_motivo: p.motivo,
       p_observacao: p.obs,
-      p_client_operation_id: opId()
+      p_client_operation_id: protocolo
     }));
-    msg(`Saída registrada. Status: ${result?.status || 'atualizado'}.`, 'ok');
+
+    const comp = snapshot(p, result, protocolo);
+    S.ultimoComprovante = comp;
+    let pdfMsg = '';
+    try{
+      const file = gerarPdf(comp);
+      pdfMsg = ` PDF gerado: ${file}.`;
+    }catch(pdfErr){
+      pdfMsg = ` PDF não gerado: ${pdfErr.message}.`;
+    }
+    await copiarTexto(textoComprovante(comp), '');
+    msg(`Saída registrada. Status: ${result?.status || 'atualizado'}. Comprovante WhatsApp copiado.${pdfMsg}`, 'ok');
     limparForm(false);
     await loadSaida();
   }catch(e){ msg(e.message || String(e),'bad'); }
