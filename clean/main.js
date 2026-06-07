@@ -1,4 +1,4 @@
-import { cfg, save, init, signIn, signOut, session, table, call } from './api.js?v=2';
+import { cfg, save, init, signIn, signOut, session, table, call } from './api.js?v=3';
 
 const S = { modelos: [], tecnicos: [], locais: [], tipos: [], marcas: [], user: null };
 const $ = (id) => document.getElementById(id);
