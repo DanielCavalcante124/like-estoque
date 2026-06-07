@@ -53,8 +53,14 @@ function injectCss(){
     .op-cart-item{border:1px solid #e5e7eb;border-radius:12px;padding:10px;margin:8px 0;background:#f8fafc}
     .op-cart-item .row{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
     .op-qty{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-top:8px}.op-qty input{margin:0}.op-qty button{margin:0}
-    @media(max-width:900px){.op-actions,.op-mini{grid-template-columns:1fr 1fr}.op-qty{grid-template-columns:1fr}}
-    @media(max-width:520px){.op-actions,.op-mini{grid-template-columns:1fr}}
+    .op-modal{position:fixed;inset:0;background:rgba(15,23,42,.62);display:none;align-items:center;justify-content:center;padding:16px;z-index:9999}
+    .op-modal.open{display:flex}.op-modal-card{background:#fff;width:min(980px,100%);max-height:92vh;overflow:auto;border-radius:22px;padding:18px;box-shadow:0 24px 70px rgba(15,23,42,.35)}
+    .op-modal-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px}.op-modal-head h2{margin:0}.op-modal-head p{margin:4px 0 0;color:#64748b}
+    .op-confirm-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0}.op-confirm-box{background:#f8fafc;border:1px solid #e5e7eb;border-radius:14px;padding:10px}.op-confirm-box small{color:#64748b;font-weight:800}.op-confirm-box b{display:block;overflow-wrap:anywhere;margin-top:3px}
+    .op-confirm-list{display:grid;gap:8px;margin:10px 0}.op-confirm-row{display:flex;justify-content:space-between;gap:10px;border:1px solid #e5e7eb;background:#f8fafc;border-radius:14px;padding:10px}.op-confirm-row div{min-width:0}.op-confirm-row b,.op-confirm-row small{overflow-wrap:anywhere}.op-confirm-row small{color:#64748b}
+    .op-modal-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;border-top:1px solid #e5e7eb;margin-top:14px;padding-top:12px}
+    @media(max-width:900px){.op-actions,.op-mini{grid-template-columns:1fr 1fr}.op-qty{grid-template-columns:1fr}.op-confirm-grid{grid-template-columns:1fr}.op-confirm-row{flex-direction:column}.op-modal-actions button{width:100%}}
+    @media(max-width:520px){.op-actions,.op-mini{grid-template-columns:1fr}.op-modal{padding:8px}.op-modal-card{border-radius:16px;padding:12px}}
   `;
   document.head.appendChild(s);
 }
@@ -78,7 +84,7 @@ function inject(){
     sec.innerHTML = `
       <div class="op-hero">
         <h2>Operação rápida</h2>
-        <p>Bipe ou pesquise equipamentos e materiais, monte o carrinho e confirme a saída para técnico em lote.</p>
+        <p>Bipe ou pesquise equipamentos e materiais, monte o carrinho e confira tudo antes da saída para técnico.</p>
       </div>
 
       <div class="grid two">
@@ -98,7 +104,7 @@ function inject(){
           <input id="opRapidaOs" placeholder="OS/Referência opcional">
           <input id="opRapidaObs" placeholder="Observação opcional">
           <div class="actions">
-            <button id="opRapidaConfirmar" class="primary">Confirmar saída</button>
+            <button id="opRapidaConfirmar" class="primary">Conferir e confirmar</button>
             <button id="opRapidaCopiar" class="secondary">Copiar WhatsApp</button>
             <button id="opRapidaLimpar" class="danger">Limpar</button>
           </div>
@@ -136,12 +142,38 @@ function inject(){
     document.querySelector('.main').appendChild(sec);
   }
 
+  if(!$('opConferenciaModal')){
+    const modal = document.createElement('div');
+    modal.id = 'opConferenciaModal';
+    modal.className = 'op-modal';
+    modal.innerHTML = `
+      <div class="op-modal-card">
+        <div class="op-modal-head">
+          <div>
+            <h2>Conferência final da saída</h2>
+            <p>Revise técnico, OS, equipamentos, materiais e quantidades antes de gravar no estoque.</p>
+          </div>
+          <button id="opConferenciaFechar" class="secondary" type="button">Fechar</button>
+        </div>
+        <div id="opConferenciaResumo"></div>
+        <div id="opConferenciaMsg" class="msg show warn">Confira todos os itens antes de confirmar definitivamente.</div>
+        <div class="op-modal-actions">
+          <button id="opConferenciaCancelar" class="secondary" type="button">Voltar e corrigir</button>
+          <button id="opConferenciaExecutar" class="primary" type="button">Confirmar definitivamente</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+
   $('opRapidaReload').onclick = () => load().catch(e => msg('opRapidaMsg', e.message, 'bad'));
   $('opRapidaBusca').oninput = pesquisar;
   $('opRapidaBusca').onkeyup = (ev) => { if(ev.key === 'Enter') autoAddScan(); };
-  $('opRapidaConfirmar').onclick = confirmar;
+  $('opRapidaConfirmar').onclick = abrirConferencia;
   $('opRapidaCopiar').onclick = () => copiarWhatsApp(true);
   $('opRapidaLimpar').onclick = limparCarrinho;
+  $('opConferenciaFechar').onclick = fecharConferencia;
+  $('opConferenciaCancelar').onclick = fecharConferencia;
+  $('opConferenciaExecutar').onclick = executarConfirmacao;
   document.querySelectorAll('[data-op-nav]').forEach(b => b.onclick = () => $(b.dataset.opNav)?.click());
 }
 
@@ -300,6 +332,68 @@ function renderResumo(){
   ].join('') || '<div class="msg show ok">Sem alerta crítico na visão rápida.</div>';
 }
 
+function validarCarrinho(){
+  const tecnico = $('opRapidaTecnico')?.value || '';
+  const os = $('opRapidaOs')?.value.trim() || '';
+  const obs = $('opRapidaObs')?.value.trim() || '';
+  if(!tecnico) throw new Error('Selecione o técnico.');
+  if(!S.cartEq.length && !S.cartMat.length) throw new Error('Carrinho vazio.');
+
+  for(const id of S.cartEq){
+    const e = eqById(id);
+    if(!e) throw new Error('Equipamento do carrinho não encontrado. Atualize os dados.');
+    if(!isEqDisponivel(e)) throw new Error(`Item indisponível: ${e?.codigo || id} - ${e?.status || '-'}.`);
+  }
+
+  const materiais = S.cartMat.map(x => {
+    const m = saldoById(x.id);
+    if(!m) throw new Error('Material do carrinho não encontrado. Atualize os dados.');
+    if(!m.modelo_id) throw new Error(`Material sem modelo_id: ${nomeMat(m)}.`);
+    if(!isMatCentral(m)) throw new Error(`Material não está no estoque central: ${nomeMat(m)}.`);
+    if(Number(x.quantidade || 0) <= 0) throw new Error(`Quantidade inválida para ${nomeMat(m)}.`);
+    if(Number(x.quantidade || 0) > Number(m.quantidade || 0)) throw new Error(`Saldo insuficiente para ${nomeMat(m)}. Disponível: ${qtd(m.quantidade)}.`);
+    return { modelo_id: m.modelo_id, quantidade: x.quantidade };
+  });
+
+  return { tecnico, os, obs, materiais };
+}
+
+function renderConferencia(payload){
+  const eqs = S.cartEq.map(id => eqById(id)).filter(Boolean);
+  const mats = S.cartMat.map(x => ({ saldo: saldoById(x.id), quantidade: x.quantidade })).filter(x => x.saldo);
+  const semOs = payload.os ? '' : '<div class="msg show warn">OS/Referência não informada. Confirme se essa saída realmente não precisa de OS.</div>';
+  $('opConferenciaResumo').innerHTML = `
+    <div class="op-confirm-grid">
+      <div class="op-confirm-box"><small>Técnico</small><b>${esc(payload.tecnico)}</b></div>
+      <div class="op-confirm-box"><small>OS/Referência</small><b>${esc(payload.os || 'Não informado')}</b></div>
+      <div class="op-confirm-box"><small>Total</small><b>${eqs.length} equipamento(s) • ${mats.length} material(is)</b></div>
+    </div>
+    ${semOs}
+    <h3>Equipamentos</h3>
+    <div class="op-confirm-list">
+      ${eqs.map((e,i)=>`<div class="op-confirm-row"><div><b>${i+1}. ${esc(e.codigo || '-')} • ${esc(nomeEq(e))}</b><br><small>MAC/SN: ${esc(e.mac || e.serial || '-')} • Status: ${esc(e.status || '-')}</small></div><span class="badge">Enviar</span></div>`).join('') || '<div class="msg show">Sem equipamentos.</div>'}
+    </div>
+    <h3>Materiais</h3>
+    <div class="op-confirm-list">
+      ${mats.map(x=>`<div class="op-confirm-row"><div><b>${esc(nomeMat(x.saldo))}</b><br><small>Saldo atual: ${qtd(x.saldo.quantidade)} ${esc(x.saldo.unidade_saida || '')}</small></div><span class="badge">${qtd(x.quantidade)} ${esc(x.saldo.unidade_saida || '')}</span></div>`).join('') || '<div class="msg show">Sem materiais.</div>'}
+    </div>
+    <h3>Observação</h3>
+    <div class="op-confirm-box"><b>${esc(payload.obs || 'Sem observação')}</b></div>`;
+}
+
+function abrirConferencia(){
+  try{
+    const payload = validarCarrinho();
+    renderConferencia(payload);
+    msg('opConferenciaMsg','Confira todos os itens antes de confirmar definitivamente.', 'warn');
+    $('opConferenciaModal')?.classList.add('open');
+  }catch(e){ msg('opRapidaCartMsg', e.message || String(e), 'bad'); }
+}
+function fecharConferencia(){
+  if(S.confirmando) return;
+  $('opConferenciaModal')?.classList.remove('open');
+}
+
 function buildWhatsApp(tecnico){
   const os = $('opRapidaOs')?.value.trim();
   const obs = $('opRapidaObs')?.value.trim();
@@ -337,36 +431,22 @@ async function copiarWhatsApp(show=false){
   }
 }
 
-async function confirmar(){
-  const btn = $('opRapidaConfirmar');
+async function executarConfirmacao(){
+  const btn = $('opConferenciaExecutar');
+  const btnAbrir = $('opRapidaConfirmar');
   if(S.confirmando) return;
   S.confirmando = true;
   if(btn){ btn.disabled = true; btn.textContent = 'Confirmando...'; }
+  if(btnAbrir){ btnAbrir.disabled = true; }
   try{
-    const tecnico = $('opRapidaTecnico')?.value || '';
-    const os = $('opRapidaOs')?.value.trim() || '';
-    const obs = $('opRapidaObs')?.value.trim() || '';
-    if(!tecnico) throw new Error('Selecione o técnico.');
-    if(!S.cartEq.length && !S.cartMat.length) throw new Error('Carrinho vazio.');
-
-    for(const id of S.cartEq){
-      const e = eqById(id);
-      if(!isEqDisponivel(e)) throw new Error(`Item indisponível: ${e?.codigo || id} - ${e?.status || '-'}.`);
-    }
-    const materiais = S.cartMat.map(x => {
-      const m = saldoById(x.id);
-      if(!m) throw new Error('Material do carrinho não encontrado.');
-      if(!m.modelo_id) throw new Error(`Material sem modelo_id: ${nomeMat(m)}.`);
-      return { modelo_id: m.modelo_id, quantidade: x.quantidade };
-    });
-
-    msg('opRapidaCartMsg','Confirmando saída em lote via RPC...', 'warn');
+    const payload = validarCarrinho();
+    msg('opConferenciaMsg','Confirmando saída em lote via RPC...', 'warn');
     const result = await call('rpc_operacao_rapida_saida_lote', {
       p_equipamentos: S.cartEq,
-      p_materiais: materiais,
-      p_tecnico: tecnico,
-      p_observacao: obs,
-      p_os: os,
+      p_materiais: payload.materiais,
+      p_tecnico: payload.tecnico,
+      p_observacao: payload.obs,
+      p_os: payload.os,
       p_client_operation_id: opId()
     });
 
@@ -375,13 +455,15 @@ async function confirmar(){
     S.cartMat = [];
     $('opRapidaOs').value = '';
     $('opRapidaObs').value = '';
+    $('opConferenciaModal')?.classList.remove('open');
     await load();
     msg('opRapidaCartMsg', `Saída confirmada: ${result?.equipamentos_count || 0} equipamento(s) e ${result?.materiais_count || 0} material(is). Mensagem copiada.`, 'ok');
   }catch(e){
-    msg('opRapidaCartMsg', e.message || String(e), 'bad');
+    msg('opConferenciaMsg', e.message || String(e), 'bad');
   }finally{
     S.confirmando = false;
-    if(btn){ btn.disabled = false; btn.textContent = 'Confirmar saída'; }
+    if(btn){ btn.disabled = false; btn.textContent = 'Confirmar definitivamente'; }
+    if(btnAbrir){ btnAbrir.disabled = false; }
   }
 }
 function limparCarrinho(){ S.cartEq = []; S.cartMat = []; renderCart(); msg('opRapidaCartMsg','Carrinho limpo.', 'warn'); }
