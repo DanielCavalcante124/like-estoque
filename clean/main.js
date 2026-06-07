@@ -1,4 +1,4 @@
-import { cfg, save, init, signIn, signOut, session, table, call } from './api.js';
+import { cfg, save, init, signIn, signOut, session, table, call } from './api.js?v=2';
 
 const S = { modelos: [], tecnicos: [], locais: [], user: null };
 const $ = (id) => document.getElementById(id);
@@ -91,7 +91,7 @@ function editLocal(id){const l=S.locais.find(x=>x.id===id); if(l){$('localId').v
 function bind(){
   document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>page(b.dataset.page));
   const loginBtn=$('btnLogin');
-  if(loginBtn) loginBtn.onclick=async()=>{try{const url=$('loginUrl').value.trim(), key=$('loginKey').value.trim(), email=$('loginEmail').value.trim(), pass=$('loginPass').value; save({url,key,email}); init(url,key); const data=await signIn(email,pass); setSession(data.user); await loadAll(); msg('loginMsg','Login realizado.','ok');}catch(e){msg('loginMsg',e.message,'bad')}};
+  if(loginBtn) loginBtn.onclick=async()=>{try{const email=$('loginEmail').value.trim(), pass=$('loginPass').value; save({email}); init(); const data=await signIn(email,pass); setSession(data.user); await loadAll(); msg('loginMsg','Login realizado.','ok');}catch(e){msg('loginMsg',e.message,'bad')}};
   if($('btnLogout')) $('btnLogout').onclick=async()=>{try{await signOut()}catch(e){} setSession(null)};
   if($('btnReload')) $('btnReload').onclick=()=>loadAll().catch(e=>alert(e.message));
   if($('formModelo')) $('formModelo').onsubmit=salvarModelo;
@@ -103,5 +103,5 @@ function bind(){
   ['filtroModelos','filtroTecnicos','filtroLocais'].forEach(id=>{if($(id))$(id).oninput=render});
   document.body.addEventListener('click',async ev=>{const b=ev.target.closest('button'); if(!b)return; try{if(b.dataset.editModelo)editModelo(b.dataset.editModelo); if(b.dataset.editTecnico)editTecnico(b.dataset.editTecnico); if(b.dataset.editLocal)editLocal(b.dataset.editLocal); if(b.dataset.desativarModelo)await desativarModelo(b.dataset.desativarModelo); if(b.dataset.desativarTecnico)await desativarTecnico(b.dataset.desativarTecnico); if(b.dataset.desativarLocal)await desativarLocal(b.dataset.desativarLocal);}catch(e){alert(e.message)}});
 }
-async function boot(){setSession(null); const c=cfg(); if($('loginUrl'))$('loginUrl').value=c.url||''; if($('loginKey'))$('loginKey').value=c.key||''; if($('loginEmail'))$('loginEmail').value=c.email||''; try{if(c.url&&c.key){init(c.url,c.key); const s=await session(); setSession(s?.user||null); if(s?.user)await loadAll();}}catch(e){setSession(null); msg('loginMsg',e.message,'bad')}}
+async function boot(){setSession(null); const c=cfg(); if($('loginEmail'))$('loginEmail').value=c.email||''; try{init(); const s=await session(); setSession(s?.user||null); if(s?.user)await loadAll();}catch(e){setSession(null); msg('loginMsg',e.message,'bad')}}
 bind(); boot();
