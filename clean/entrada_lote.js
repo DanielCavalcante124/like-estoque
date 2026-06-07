@@ -1,6 +1,7 @@
 import { table, call } from './api.js?v=2';
 
-const S = { modelos: [], locais: [], equipamentos: [], preview: [] };
+const DRAFT_KEY = 'like_entrada_lote_pre_cadastro_v1';
+const S = { modelos: [], locais: [], equipamentos: [], itens: [] };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const br = (v) => Number(v || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -21,6 +22,10 @@ function isPatrimonio(m){
   return !(c.includes('consumo') || c.includes('material'));
 }
 function num(id){ return Number($(id)?.value || 0) || 0; }
+function isMac(v){ return /^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/.test(upper(v)); }
+function cleanMac(v){ return upper(v).replace(/-/g, ':'); }
+function saveDraft(){ localStorage.setItem(DRAFT_KEY, JSON.stringify(S.itens)); }
+function loadDraft(){ try{ S.itens = JSON.parse(localStorage.getItem(DRAFT_KEY) || '[]'); }catch(e){ S.itens = []; } }
 
 function inject(){
   if(!$('navEntradaLoteClean')){
@@ -41,8 +46,8 @@ function inject(){
       <div class="card">
         <div class="table-head">
           <div>
-            <h2>Entrada em lote</h2>
-            <p>Cole vários MACs/SNs e registre todos por RPC em uma operação controlada.</p>
+            <h2>Entrada em lote por bip</h2>
+            <p>Bipe MAC e SN, gere um pré-cadastro local e só depois grave o lote no sistema.</p>
           </div>
           <button id="loteReload" class="secondary">Recarregar dados</button>
         </div>
@@ -68,29 +73,44 @@ function inject(){
           </div>
           <input id="loteResponsavel" placeholder="Responsável pela entrada">
           <input id="loteObs" placeholder="Observação do lote">
-          <textarea id="loteTexto" rows="12" placeholder="Cole aqui um item por linha. Exemplos:\nAA:BB:CC:DD:EE:01, SN001\nAA:BB:CC:DD:EE:02\nSN003"></textarea>
+
+          <div class="card" style="margin-top:12px">
+            <h2>Bip do equipamento</h2>
+            <p>Fluxo recomendado: bipe o MAC, depois bipe o SN. Ao bipar o SN e pressionar Enter, o item entra automaticamente no pré-cadastro.</p>
+            <div class="form-grid two">
+              <input id="loteScanMac" placeholder="Bipe ou digite o MAC">
+              <input id="loteScanSerial" placeholder="Bipe ou digite o Serial/SN">
+            </div>
+            <div class="actions">
+              <button class="primary" id="loteAdicionarItem" type="button">Adicionar ao pré-cadastro</button>
+              <button class="secondary" id="loteLimparScan" type="button">Limpar campos MAC/SN</button>
+            </div>
+          </div>
+
           <div class="actions">
-            <button class="secondary" id="lotePreviewBtn" type="button">Pré-validar lote</button>
-            <button class="primary" type="submit">Registrar lote</button>
-            <button class="secondary" id="loteLimpar" type="button">Limpar</button>
+            <button class="primary" type="submit">Finalizar entrada no sistema</button>
+            <button class="danger" id="loteLimparTudo" type="button">Limpar pré-cadastro</button>
           </div>
         </form>
 
         <div class="card">
-          <h2>Resumo do lote</h2>
+          <h2>Resumo do pré-cadastro</h2>
           <div class="kpis">
-            <div class="kpi"><small>Linhas válidas</small><b id="loteKValidas">0</b></div>
-            <div class="kpi"><small>Duplicadas</small><b id="loteKDup">0</b></div>
-            <div class="kpi"><small>Já cadastradas</small><b id="loteKExist">0</b></div>
+            <div class="kpi"><small>Pré-cadastrados</small><b id="loteKTotal">0</b></div>
+            <div class="kpi"><small>Válidos</small><b id="loteKValidas">0</b></div>
+            <div class="kpi"><small>Com problema</small><b id="loteKProblema">0</b></div>
             <div class="kpi"><small>Custo total</small><b id="loteKCusto">R$ 0,00</b></div>
           </div>
-          <div class="msg show warn">Formato aceito: MAC, SERIAL. Se houver apenas um valor, o sistema tenta identificar se é MAC; caso contrário, usa como Serial/SN.</div>
+          <div class="msg show warn">O pré-cadastro fica salvo neste navegador até você finalizar a entrada ou limpar o lote.</div>
         </div>
       </div>
 
       <div class="card">
-        <h2>Prévia antes de registrar</h2>
-        <div class="table-wrap"><table><thead><tr><th>Linha</th><th>MAC</th><th>Serial/SN</th><th>Status</th></tr></thead><tbody id="lotePreviewTbody"></tbody></table></div>
+        <div class="table-head">
+          <h2>Pré-cadastro antes de entrar no sistema</h2>
+          <button id="loteFocoMac" class="secondary">Focar campo MAC</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>#</th><th>MAC</th><th>Serial/SN</th><th>Status</th><th>Ações</th></tr></thead><tbody id="lotePreviewTbody"></tbody></table></div>
       </div>
 
       <div class="card">
@@ -102,11 +122,20 @@ function inject(){
 
   $('loteReload').onclick = () => loadLote().catch(e=>msg(e.message,'bad'));
   $('loteModeloSelect').onchange = selecionarModelo;
-  $('lotePreviewBtn').onclick = () => renderPreview();
   $('loteForm').onsubmit = salvarLote;
-  $('loteLimpar').onclick = limpar;
-  ['loteTipo','loteMarca','loteModelo','loteLocal','loteCusto','loteFornecedor','loteNf','loteResponsavel','loteObs','loteTexto'].forEach(id=>{
+  $('loteAdicionarItem').onclick = adicionarAtual;
+  $('loteLimparScan').onclick = limparScan;
+  $('loteLimparTudo').onclick = limparTudo;
+  $('loteFocoMac').onclick = () => $('loteScanMac').focus();
+  $('loteScanMac').addEventListener('keydown', ev => { if(ev.key === 'Enter'){ ev.preventDefault(); $('loteScanSerial').focus(); } });
+  $('loteScanSerial').addEventListener('keydown', ev => { if(ev.key === 'Enter'){ ev.preventDefault(); adicionarAtual(); } });
+  ['loteTipo','loteMarca','loteModelo','loteLocal','loteCusto','loteFornecedor','loteNf','loteResponsavel','loteObs'].forEach(id=>{
     const el=$(id); if(el) el.addEventListener('input', renderPreview);
+  });
+  document.addEventListener('click', ev => {
+    const btn = ev.target.closest('[data-remove-lote]');
+    if(!btn) return;
+    removerItem(Number(btn.dataset.removeLote));
   });
 }
 
@@ -120,12 +149,14 @@ function showPage(){
 
 async function loadLote(){
   msg('Carregando dados do lote...', 'warn');
+  loadDraft();
   S.modelos = await table('modelos','tipo',true);
   S.locais = await table('locais','nome',true);
   S.equipamentos = await table('equipamentos','created_at',false);
   fillSelects();
   renderPreview();
-  msg('Entrada em lote pronta.', 'ok');
+  setTimeout(() => $('loteScanMac')?.focus(), 100);
+  msg('Entrada em lote por bip pronta.', 'ok');
 }
 
 function fillSelects(){
@@ -145,24 +176,12 @@ function selecionarModelo(){
   $('loteModelo').value = m.modelo || '';
   $('loteCusto').value = m.custo_padrao || m.custo || 0;
   renderPreview();
-}
-
-function isMac(v){ return /^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/.test(upper(v)); }
-function cleanMac(v){ return upper(v).replace(/-/g, ':'); }
-function parseLinhas(){
-  const text = $('loteTexto').value || '';
-  return text.split(/\r?\n/).map((raw, idx)=>({raw, idx:idx+1})).filter(x=>norm(x.raw)).map(x=>{
-    const parts = x.raw.split(/[;,\t|]/).map(norm).filter(Boolean);
-    let mac='', serial='';
-    if(parts.length >= 2){ mac = isMac(parts[0]) ? cleanMac(parts[0]) : upper(parts[0]); serial = upper(parts[1]); }
-    else if(parts.length === 1){ if(isMac(parts[0])) mac = cleanMac(parts[0]); else serial = upper(parts[0]); }
-    return { linha:x.idx, mac, serial, raw:x.raw };
-  });
+  $('loteScanMac').focus();
 }
 
 function common(){
   const tipo=norm($('loteTipo').value), marca=norm($('loteMarca').value), modelo=norm($('loteModelo').value);
-  if(!tipo || !marca || !modelo) throw new Error('Selecione ou preencha tipo, marca e modelo.');
+  if(!tipo || !marca || !modelo) throw new Error('Selecione ou preencha tipo, marca e modelo antes de bipar.');
   return {
     tipo, marca, modelo,
     local: norm($('loteLocal').value) || 'Estoque central',
@@ -174,72 +193,107 @@ function common(){
   };
 }
 
-function validate(){
-  const c = common();
-  const linhas = parseLinhas();
-  const macs = new Map(), seriais = new Map();
+function adicionarAtual(){
+  try{
+    common();
+    let mac = norm($('loteScanMac').value);
+    let serial = norm($('loteScanSerial').value);
+    if(mac && !isMac(mac) && !serial){ serial = upper(mac); mac = ''; }
+    mac = mac ? cleanMac(mac) : '';
+    serial = upper(serial);
+    if(!mac && !serial) throw new Error('Bipe ou digite MAC e/ou SN antes de adicionar.');
+    if(mac && S.itens.some(i=>i.mac===mac)) throw new Error('MAC já está no pré-cadastro.');
+    if(serial && S.itens.some(i=>i.serial===serial)) throw new Error('Serial/SN já está no pré-cadastro.');
+    const existingMac = new Set(S.equipamentos.map(e=>upper(e.mac)).filter(Boolean));
+    const existingSerial = new Set(S.equipamentos.map(e=>upper(e.serial)).filter(Boolean));
+    if(mac && existingMac.has(mac)) throw new Error('MAC já cadastrado no sistema.');
+    if(serial && existingSerial.has(serial)) throw new Error('Serial/SN já cadastrado no sistema.');
+    S.itens.push({ mac, serial, criado_em: new Date().toISOString() });
+    saveDraft();
+    limparScan(false);
+    renderPreview();
+    msg(`Item adicionado ao pré-cadastro. Total: ${S.itens.length}.`, 'ok');
+    $('loteScanMac').focus();
+  }catch(e){ msg(e.message || String(e), 'bad'); }
+}
+
+function limparScan(show=true){
+  $('loteScanMac').value = '';
+  $('loteScanSerial').value = '';
+  if(show) msg('Campos MAC/SN limpos.', 'ok');
+  $('loteScanMac').focus();
+}
+
+function itemIssues(item){
+  const issues=[];
+  if(!item.mac && !item.serial) issues.push('sem MAC/SN');
   const existingMac = new Set(S.equipamentos.map(e=>upper(e.mac)).filter(Boolean));
   const existingSerial = new Set(S.equipamentos.map(e=>upper(e.serial)).filter(Boolean));
-  S.preview = linhas.map(item=>{
-    const issues=[];
-    if(!item.mac && !item.serial) issues.push('sem MAC/SN');
-    if(item.mac){ macs.set(item.mac, (macs.get(item.mac)||0)+1); if(existingMac.has(item.mac)) issues.push('MAC já cadastrado'); }
-    if(item.serial){ seriais.set(item.serial, (seriais.get(item.serial)||0)+1); if(existingSerial.has(item.serial)) issues.push('Serial já cadastrado'); }
-    return {...c, ...item, issues};
-  });
-  S.preview.forEach(item=>{
-    if(item.mac && macs.get(item.mac)>1) item.issues.push('MAC duplicado no lote');
-    if(item.serial && seriais.get(item.serial)>1) item.issues.push('Serial duplicado no lote');
-  });
-  return S.preview;
+  if(item.mac && existingMac.has(item.mac)) issues.push('MAC já cadastrado');
+  if(item.serial && existingSerial.has(item.serial)) issues.push('Serial já cadastrado');
+  const macCount = item.mac ? S.itens.filter(i=>i.mac===item.mac).length : 0;
+  const serialCount = item.serial ? S.itens.filter(i=>i.serial===item.serial).length : 0;
+  if(item.mac && macCount > 1) issues.push('MAC duplicado');
+  if(item.serial && serialCount > 1) issues.push('Serial duplicado');
+  return issues;
 }
 
 function renderPreview(){
-  let rows=[];
-  try{ rows = validate(); }
-  catch(e){
-    $('lotePreviewTbody').innerHTML = `<tr><td colspan="4">${esc(e.message)}</td></tr>`;
-    setKpis([]);
-    return;
-  }
+  let c = null;
+  try{ c = common(); }catch(e){}
+  const rows = S.itens.map((item, idx)=>({ ...item, linha:idx+1, issues:itemIssues(item) }));
   setKpis(rows);
-  $('lotePreviewTbody').innerHTML = rows.map(r=>`<tr><td>${r.linha}</td><td>${esc(r.mac || '-')}</td><td>${esc(r.serial || '-')}</td><td><span class="badge">${esc(r.issues.length ? r.issues.join(' • ') : 'OK')}</span></td></tr>`).join('') || '<tr><td colspan="4">Cole os itens do lote.</td></tr>';
+  $('lotePreviewTbody').innerHTML = rows.map(r=>`<tr><td>${r.linha}</td><td>${esc(r.mac || '-')}</td><td>${esc(r.serial || '-')}</td><td><span class="badge">${esc(r.issues.length ? r.issues.join(' • ') : 'OK')}</span></td><td><button class="danger" data-remove-lote="${r.linha-1}">Remover</button></td></tr>`).join('') || '<tr><td colspan="5">Nenhum item no pré-cadastro. Bipe MAC e SN para adicionar.</td></tr>';
+  if(!c && S.itens.length) msg('Selecione o produto/modelo antes de finalizar o lote.', 'warn');
 }
 
 function setKpis(rows){
   const validas = rows.filter(r=>!r.issues.length).length;
-  const dup = rows.filter(r=>r.issues.some(x=>x.includes('duplicado'))).length;
-  const exist = rows.filter(r=>r.issues.some(x=>x.includes('cadastrado'))).length;
+  const problema = rows.length - validas;
+  $('loteKTotal').textContent = rows.length;
   $('loteKValidas').textContent = validas;
-  $('loteKDup').textContent = dup;
-  $('loteKExist').textContent = exist;
+  $('loteKProblema').textContent = problema;
   $('loteKCusto').textContent = br(validas * num('loteCusto'));
+}
+
+function removerItem(idx){
+  S.itens.splice(idx,1);
+  saveDraft();
+  renderPreview();
+  msg('Item removido do pré-cadastro.', 'ok');
+  $('loteScanMac').focus();
 }
 
 async function salvarLote(ev){
   ev.preventDefault();
   try{
-    const rows = validate();
-    if(!rows.length) throw new Error('Cole pelo menos uma linha no lote.');
+    const c = common();
+    const rows = S.itens.map((item, idx)=>({ ...c, ...item, linha:idx+1, issues:itemIssues(item) }));
+    if(!rows.length) throw new Error('Bipe pelo menos um equipamento antes de finalizar.');
     const invalidas = rows.filter(r=>r.issues.length);
-    if(invalidas.length) throw new Error(`Corrija ${invalidas.length} linha(s) antes de registrar.`);
-    if(!confirm(`Confirmar entrada em lote de ${rows.length} equipamento(s)?`)) return;
+    if(invalidas.length) throw new Error(`Corrija ${invalidas.length} item(ns) no pré-cadastro antes de registrar.`);
+    if(!confirm(`Confirmar entrada no sistema de ${rows.length} equipamento(s)?`)) return;
     msg('Registrando lote via RPC...', 'warn');
     const itens = rows.map(r=>({tipo:r.tipo,marca:r.marca,modelo:r.modelo,mac:r.mac,serial:r.serial,local:r.local,custo:r.custo,observacao:r.observacao,fornecedor:r.fornecedor,nf:r.nf,responsavel:r.responsavel}));
     const result = await call('rpc_registrar_entrada_equipamento_lote', { p_itens: itens, p_client_operation_id: opId() });
     const arr = Array.isArray(result) ? result : [result].filter(Boolean);
     $('loteResultadoTbody').innerHTML = arr.map(r=>`<tr><td>${esc(r.linha)}</td><td><b>${esc(r.codigo)}</b></td><td>${esc(r.mac || '-')}</td><td>${esc(r.serial || '-')}</td></tr>`).join('') || '<tr><td colspan="4">Lote registrado.</td></tr>';
+    S.itens = [];
+    saveDraft();
+    renderPreview();
     msg(`Lote registrado com sucesso: ${arr.length || rows.length} equipamento(s).`, 'ok');
-    $('loteTexto').value = '';
     await loadLote();
   }catch(e){ msg(e.message || String(e), 'bad'); }
 }
 
-function limpar(){
-  ['loteModeloSelect','loteTipo','loteMarca','loteModelo','loteCusto','loteFornecedor','loteNf','loteResponsavel','loteObs','loteTexto'].forEach(id=>{ if($(id)) $(id).value=''; });
-  $('loteResultadoTbody').innerHTML = '';
+function limparTudo(){
+  if(S.itens.length && !confirm('Limpar todo o pré-cadastro deste lote?')) return;
+  S.itens = [];
+  saveDraft();
   renderPreview();
-  msg('Formulário limpo.', 'ok');
+  $('loteResultadoTbody').innerHTML = '';
+  msg('Pré-cadastro limpo.', 'ok');
+  $('loteScanMac').focus();
 }
 
 inject();
