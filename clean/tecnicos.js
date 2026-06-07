@@ -1,16 +1,18 @@
-import { table } from './api.js';
+import { table } from './api.js?v=3';
 
 const S={tecnicos:[],equipamentos:[],saldos:[],movEq:[],movMat:[],sel:''};
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const br=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const qtd=v=>Number(v||0).toLocaleString('pt-BR',{maximumFractionDigits:3});
-const ativo=x=>x&&x.ativo!==false;
+const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+const ativo=x=>x&&x.ativo!==false&&!['baixado','inutilizado','perdido'].includes(norm(x.status));
+const statusSemPosse=e=>['em estoque','baixado','inutilizado','perdido','instalado cliente','instalado no cliente'].includes(norm(e.status));
 function msg(t,c=''){let e=$('tecCleanMsg');if(e){e.textContent=t;e.className='msg show '+c}}
 function nomeEq(e){return [e.tipo,e.marca,e.modelo].filter(Boolean).join(' ')}
 function nomeMat(m){return [m.tipo,m.marca,m.modelo].filter(Boolean).join(' ')}
 function tecEq(e){return String(e.tecnico_atual||e.tecnico||'').trim()}
-function eqs(n){return S.equipamentos.filter(e=>tecEq(e)===n&&e.ativo!==false&&!['Em estoque','Baixado','Inutilizado','Perdido','Instalado cliente','Instalado no cliente'].includes(e.status||''))}
+function eqs(n){return S.equipamentos.filter(e=>tecEq(e)===n&&ativo(e)&&!statusSemPosse(e))}
 function mats(n){return S.saldos.filter(s=>String(s.tecnico||'').trim()===n&&Number(s.quantidade||0)>0)}
 function valor(n){return eqs(n).reduce((a,e)=>a+Number(e.custo||0),0)}
 function nomes(){let r=new Set();S.tecnicos.filter(ativo).forEach(t=>t.nome&&r.add(t.nome));S.equipamentos.forEach(e=>tecEq(e)&&r.add(tecEq(e)));S.saldos.forEach(s=>s.tecnico&&r.add(String(s.tecnico).trim()));return [...r].sort((a,b)=>a.localeCompare(b,'pt-BR'))}
