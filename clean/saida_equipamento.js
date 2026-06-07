@@ -1,4 +1,5 @@
 import { table, call, first } from './api.js?v=3';
+import { openMovimentacaoModal } from './movimentacao_modal.js?v=1';
 
 const S = { equipamentos: [], tecnicos: [], locais: [], selecionado: null };
 const $ = (id) => document.getElementById(id);
@@ -6,6 +7,7 @@ const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':
 const opId = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2);
 const ativo = (x) => x && x.ativo !== false;
 const norm = (v) => String(v || '').trim();
+let bound = false;
 
 function msg(text, type=''){
   const el = $('saidaMsg');
@@ -17,7 +19,7 @@ function nomeEq(e){ return [e.tipo,e.marca,e.modelo].filter(Boolean).join(' '); 
 function identificacao(e){ return [e.codigo, e.mac, e.serial, nomeEq(e)].filter(Boolean).join(' • '); }
 function isDisponivel(e){
   const status = String(e.status || '').toLowerCase();
-  const blocked = ['inutilizado','perdido','baixado','manutenção','em manutenção','em manutencao','com técnico','instalado cliente','instalado no cliente','na rua'];
+  const blocked = ['inutilizado','perdido','baixado','manutenção','em manutenção','em manutencao','com técnico','com tecnico','instalado cliente','instalado no cliente','na rua'];
   if(!ativo(e)) return false;
   if(blocked.includes(status)) return false;
   return status === 'em estoque' || status === 'reservado' || !status;
@@ -106,22 +108,12 @@ function inject(){
             <tbody id="saidaTbody"></tbody>
           </table>
         </div>
-      </div>
-
-      <div id="saidaModal" class="modal-clean" style="display:none">
-        <div class="modal-clean-box">
-          <h2>Confirmar saída</h2>
-          <div id="saidaModalResumo" class="list"></div>
-          <div class="actions">
-            <button id="saidaConfirmar" class="primary" type="button">Confirmar saída</button>
-            <button id="saidaCancelar" class="secondary" type="button">Cancelar</button>
-          </div>
-        </div>
       </div>`;
     document.querySelector('.main').appendChild(sec);
-    ensureStyle();
   }
 
+  if(bound) return;
+  bound = true;
   $('saidaReload').onclick = () => loadSaida().catch(e=>msg(e.message,'bad'));
   $('saidaForm').onsubmit = abrirConfirmacao;
   $('saidaLimpar').onclick = limparForm;
@@ -132,8 +124,6 @@ function inject(){
   ['saidaCliente','saidaOs','saidaDestino','saidaMotivo','saidaObs','saidaFiltroTabela'].forEach(id=>{
     const el=$(id); if(el) el.addEventListener('input',()=>{ if(id==='saidaFiltroTabela') renderTabela(); else { ajustarDestino(false); renderPreview(); } });
   });
-  $('saidaCancelar').onclick = fecharModal;
-  $('saidaConfirmar').onclick = confirmarSaida;
   document.addEventListener('click', ev => {
     const btn = ev.target.closest('[data-saida-eq]');
     if(!btn) return;
@@ -142,14 +132,6 @@ function inject(){
     renderPreview();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
-}
-
-function ensureStyle(){
-  if($('saidaModalStyle')) return;
-  const st = document.createElement('style');
-  st.id = 'saidaModalStyle';
-  st.textContent = `.modal-clean{position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px}.modal-clean-box{background:#fff;border-radius:20px;max-width:720px;width:100%;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.35)}.modal-clean-box h2{margin-top:0}`;
-  document.head.appendChild(st);
 }
 
 function showPage(){
@@ -249,19 +231,21 @@ function renderPreview(){
   $('saidaRegra').textContent = 'Revise os dados antes de confirmar a saída.';
   $('saidaPreview').innerHTML = resumoHtml(p);
 }
-function abrirConfirmacao(ev){
+async function abrirConfirmacao(ev){
   ev.preventDefault();
   try{
     const p = payload();
-    $('saidaModalResumo').innerHTML = resumoHtml(p);
-    $('saidaModal').style.display = 'flex';
+    const ok = await openMovimentacaoModal({
+      title: 'Confirmar saída',
+      subtitle: 'A saída altera status, local e histórico do equipamento.',
+      html: resumoHtml(p),
+      confirmText: 'Confirmar saída'
+    });
+    if(ok) await confirmarSaida(p);
   }catch(e){ msg(e.message,'bad'); renderPreview(); }
 }
-function fecharModal(){ $('saidaModal').style.display = 'none'; }
-async function confirmarSaida(){
+async function confirmarSaida(p){
   try{
-    const p = payload();
-    $('saidaConfirmar').disabled = true;
     msg('Registrando saída via RPC...', 'warn');
     const result = first(await call('rpc_registrar_saida_equipamento', {
       p_equipamento_id: p.eq.id,
@@ -274,12 +258,10 @@ async function confirmarSaida(){
       p_observacao: p.obs,
       p_client_operation_id: opId()
     }));
-    fecharModal();
     msg(`Saída registrada. Status: ${result?.status || 'atualizado'}.`, 'ok');
     limparForm(false);
     await loadSaida();
   }catch(e){ msg(e.message || String(e),'bad'); }
-  finally{ $('saidaConfirmar').disabled = false; }
 }
 
 function limparForm(show=true){
