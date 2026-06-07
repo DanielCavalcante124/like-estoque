@@ -16,6 +16,8 @@ function msg(id, text, type=''){
 function clearMsg(id){ const el=$(id); if(el){ el.textContent=''; el.className='msg'; } }
 function setSession(user){
   S.user=user||null;
+  document.body.classList.toggle('auth-locked', !S.user);
+  document.body.classList.toggle('auth-ok', !!S.user);
   setText('sessionStatus',user?'Online':'Offline');
   setText('sessionUser',user?user.email:'Faça login');
   const box = document.querySelector('.session-box');
@@ -26,6 +28,7 @@ function setSession(user){
 }
 function auth(){ if(!S.user) throw new Error('Faça login antes de operar.'); }
 function page(p){
+  if(!S.user && p !== 'login') return;
   document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page===p));
   document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id==='page-'+p));
   setText('pageTitle',p==='cadastros'?'Cadastros':'Dashboard');
@@ -100,5 +103,5 @@ function bind(){
   ['filtroModelos','filtroTecnicos','filtroLocais'].forEach(id=>{if($(id))$(id).oninput=render});
   document.body.addEventListener('click',async ev=>{const b=ev.target.closest('button'); if(!b)return; try{if(b.dataset.editModelo)editModelo(b.dataset.editModelo); if(b.dataset.editTecnico)editTecnico(b.dataset.editTecnico); if(b.dataset.editLocal)editLocal(b.dataset.editLocal); if(b.dataset.desativarModelo)await desativarModelo(b.dataset.desativarModelo); if(b.dataset.desativarTecnico)await desativarTecnico(b.dataset.desativarTecnico); if(b.dataset.desativarLocal)await desativarLocal(b.dataset.desativarLocal);}catch(e){alert(e.message)}});
 }
-async function boot(){const c=cfg(); if($('loginUrl'))$('loginUrl').value=c.url||''; if($('loginKey'))$('loginKey').value=c.key||''; if($('loginEmail'))$('loginEmail').value=c.email||''; try{if(c.url&&c.key){init(c.url,c.key); const s=await session(); setSession(s?.user||null); if(s?.user)await loadAll();}}catch(e){msg('loginMsg',e.message,'bad')}}
+async function boot(){setSession(null); const c=cfg(); if($('loginUrl'))$('loginUrl').value=c.url||''; if($('loginKey'))$('loginKey').value=c.key||''; if($('loginEmail'))$('loginEmail').value=c.email||''; try{if(c.url&&c.key){init(c.url,c.key); const s=await session(); setSession(s?.user||null); if(s?.user)await loadAll();}}catch(e){setSession(null); msg('loginMsg',e.message,'bad')}}
 bind(); boot();
