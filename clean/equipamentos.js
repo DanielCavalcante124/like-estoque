@@ -16,6 +16,7 @@ const isCliente = (e) => isAtivo(e) && isOne(e, ['instalado cliente','instalado 
 const isManutencao = (e) => isAtivo(e) && (isOne(e, ['manutencao','em manutencao','defeituoso','testar']) || norm(e.local).includes('manutencao'));
 const isGarantia = (e) => isAtivo(e) && (isOne(e, ['garantia']) || norm(e.local).includes('garantia'));
 const isAguardandoBaixa = (e) => isAtivo(e) && isOne(e, ['aguardando baixa','descarte autorizado']);
+const isElegivelBaixa = (e) => isManutencao(e) || isGarantia(e) || isAguardandoBaixa(e) || isOne(e, ['inutilizado','defeituoso']);
 
 const FLUXOS = {
   saida: { nav:'navSaidaClean', load:'saidaCleanLoad', select:'saidaEquipamento', label:'Saída' },
@@ -146,12 +147,15 @@ function renderAcoes(e){
   const id = esc(e.id);
   const historico = `<button class="secondary" data-open-historico-eq="${id}">Histórico</button>`;
   if(!isAtivo(e)) return `${historico}<span class="badge">Inativo</span>`;
+  const baixa = isElegivelBaixa(e)
+    ? `<button class="danger" data-open-baixa-eq="${id}">Baixa</button>`
+    : `<button class="secondary" data-block-baixa-eq="${id}">Baixa indisponível</button>`;
   return `
     ${historico}
     <button class="warn" data-open-saida-eq="${id}">Saída</button>
     <button class="secondary" data-open-devolucao-eq="${id}">Devolução</button>
     <button class="secondary" data-open-manutencao-eq="${id}">Manutenção</button>
-    <button class="danger" data-open-baixa-eq="${id}">Baixa</button>`;
+    ${baixa}`;
 }
 
 function renderEquipamentos(){
@@ -181,18 +185,24 @@ async function abrirFluxo(tipo, id){
   const eq = getEq(id);
   const f = FLUXOS[tipo];
   if(!f) throw new Error('Fluxo inválido.');
+  if(tipo === 'baixa' && !isElegivelBaixa(eq)){
+    throw new Error('Este equipamento ainda não está elegível para baixa. Primeiro envie para Manutenção e use “Preparar para baixa”.');
+  }
   const nav = $(f.nav);
   if(!nav) throw new Error(`Tela ${f.label} não encontrada. Recarregue a página.`);
 
   msg(`Abrindo ${f.label} para ${eq.codigo || eq.mac || eq.serial || 'equipamento'}...`, 'warn');
   nav.click();
-  await sleep(250);
+  await sleep(300);
   if(typeof window[f.load] === 'function') await window[f.load]();
-  await sleep(50);
+  await sleep(100);
 
   const select = $(f.select);
   if(!select) throw new Error(`Campo de seleção da tela ${f.label} não encontrado.`);
   select.value = id;
+  if(select.value !== id){
+    throw new Error(`O equipamento não apareceu na lista de ${f.label}. Status atual: ${eq.status || '-'}.`);
+  }
   select.dispatchEvent(new Event('change', { bubbles:true }));
 
   if(f.form){
@@ -210,6 +220,7 @@ document.addEventListener('click', async (ev)=>{
     if(btn.dataset.openManutencaoEq) await abrirFluxo('manutencao', btn.dataset.openManutencaoEq);
     if(btn.dataset.openBaixaEq) await abrirFluxo('baixa', btn.dataset.openBaixaEq);
     if(btn.dataset.openHistoricoEq) await abrirFluxo('historico', btn.dataset.openHistoricoEq);
+    if(btn.dataset.blockBaixaEq) throw new Error('Baixa indisponível: primeiro coloque o equipamento em Manutenção e marque “Preparar para baixa”.');
   }catch(e){ msg(e.message || String(e), 'bad'); }
 });
 
