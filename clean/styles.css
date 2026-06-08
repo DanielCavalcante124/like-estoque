@@ -107,6 +107,91 @@ th{background:#0f4c81;color:#fff;position:relative}
   table{min-width:620px}
 }
 
+/* 7A.2 - Camada mobile-first pós-versão estável 6G.
+   Objetivo: melhorar uso em celular sem alterar regras de negócio, RPCs ou permissões. */
+:root{--safe-bottom:env(safe-area-inset-bottom,0px);--tap:46px}
+button,.nav,input,select,textarea,a.legacy-link{touch-action:manipulation}
+button,.nav{min-height:42px}
+input,select,textarea{min-height:44px}
+.table-wrap{scrollbar-width:thin;scrollbar-color:#94a3b8 #e5e7eb}
+.table-wrap::-webkit-scrollbar{height:10px}
+.table-wrap::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:999px}
+.table-wrap::-webkit-scrollbar-track{background:#e5e7eb;border-radius:999px}
+
+@media(max-width:900px){
+  .sidebar{position:sticky;top:0;z-index:50;box-shadow:0 10px 24px rgba(15,23,42,.18);border-bottom:1px solid #244260;display:block;padding:10px 10px 9px}
+  .brand{display:inline-block;min-width:168px;margin-right:6px;vertical-align:middle}
+  .brand strong{font-size:18px}
+  .brand span{display:block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sidebar .nav{min-height:var(--tap);align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.08);scroll-snap-align:start;font-size:13px}
+  .sidebar .nav.active{box-shadow:inset 0 -3px 0 #60a5fa;background:#173051}
+  .sidebar{scroll-snap-type:x proximity}
+  .legacy-link{min-height:var(--tap);align-items:center}
+  .session-box{min-height:var(--tap);align-items:center}
+  .topbar{position:sticky;top:66px;z-index:30;border-radius:0 0 16px 16px;margin:-14px -14px 14px;padding:12px 14px;box-shadow:0 8px 18px rgba(15,23,42,.10)}
+  .topbar h1{font-size:24px}
+  .topbar p{font-size:12px;line-height:1.35}
+  .top-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .top-actions button{min-height:var(--tap);font-size:14px}
+  .main{padding-bottom:calc(22px + var(--safe-bottom))}
+  .card{overflow:hidden}
+  .table-head{align-items:flex-start}
+  .table-head>div,.table-head h2,.table-head p{width:100%;min-width:0}
+  .table-head input,.table-head select,.table-head button{min-height:var(--tap)}
+}
+
+@media(max-width:720px){
+  body{background:#eef3f8}
+  .grid,.form-grid{gap:10px}
+  .card h2{font-size:19px;line-height:1.2;margin-top:0}
+  .card p{font-size:13px;line-height:1.4}
+  input,select,textarea{font-size:16px;border-radius:14px;padding:12px 13px;margin:4px 0 8px}
+  textarea{min-height:110px}
+  button{min-height:var(--tap);border-radius:14px;font-size:14px;padding:12px 13px}
+  .primary,.danger,.warn,.success{box-shadow:0 8px 18px rgba(15,23,42,.10)}
+  .msg{font-size:13px;line-height:1.35;border-radius:14px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .kpi{padding:12px;border-radius:16px}
+  .kpi b{font-size:24px}
+  .item{border-radius:16px;background:#fff;padding:12px;box-shadow:0 5px 15px rgba(15,23,42,.06)}
+  .item .actions,.item>div+div{width:100%}
+  .item button{width:100%}
+  .actions{position:relative;gap:8px}
+  .actions button{min-height:var(--tap)}
+  .table-wrap{margin-left:-2px;margin-right:-2px;border-radius:16px;box-shadow:inset -18px 0 20px -22px rgba(15,23,42,.55)}
+  .table-wrap:before{content:'Arraste a tabela para o lado';display:block;position:sticky;left:0;top:0;background:#f8fafc;color:#64748b;font-size:11px;font-weight:800;padding:7px 10px;border-bottom:1px solid #e5e7eb;z-index:2}
+  table{min-width:640px}
+  th{position:sticky;top:0;z-index:1;font-size:11px;text-transform:uppercase;letter-spacing:.02em}
+  th,td{padding:10px 8px;font-size:12px}
+  .badge{padding:5px 8px;font-size:11px;line-height:1.2}
+}
+
+@media(max-width:520px){
+  .main{padding:8px;padding-bottom:calc(24px + var(--safe-bottom))}
+  .topbar{top:62px;margin:-8px -8px 10px;padding:10px 10px 11px}
+  .topbar h1{font-size:21px}
+  .topbar p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .brand{min-width:150px}
+  .brand strong{font-size:17px}
+  .brand span{max-width:150px}
+  .sidebar .nav{font-size:12px;padding:9px 11px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .card,.kpi{padding:11px;border-radius:16px}
+  .form-card{padding-bottom:14px}
+  .actions{grid-template-columns:1fr}
+  .actions button{width:100%}
+  .top-actions{grid-template-columns:1fr}
+  table{min-width:580px}
+}
+
+@media(max-width:380px){
+  .kpis{grid-template-columns:1fr}
+  .sidebar .nav{font-size:12px;padding:8px 9px}
+  .topbar h1{font-size:20px}
+  .card h2{font-size:17px}
+  table{min-width:540px}
+}
+
 @media print{
   @page{size:A4 landscape;margin:12mm}
   body{background:#fff;color:#111;font-family:Arial,sans-serif}
