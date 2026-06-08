@@ -9,7 +9,6 @@ const dt = v => { try { return v ? new Date(v).toLocaleString('pt-BR') : '-'; } 
 const hoje = () => new Date().toISOString().slice(0,10);
 const primeiroDiaMes = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0,10); };
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-const get = (obj,path,def=0) => path.split('.').reduce((a,k)=>a?.[k], obj) ?? def;
 
 function msg(text,type=''){
   const el = $('fecMsg');
@@ -19,7 +18,7 @@ function css(){
   if($('fecCss')) return;
   const s = document.createElement('style');
   s.id = 'fecCss';
-  s.textContent = `.fec-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.fec-kpi{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px}.fec-kpi small{display:block;color:#64748b;font-weight:800}.fec-kpi b{font-size:21px}.fec-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.fec-actions{display:flex;gap:8px;flex-wrap:wrap}.fec-box{border:1px solid #e5e7eb;border-radius:14px;padding:10px;margin-bottom:8px;background:#fff}.fec-box b{display:block}.fec-box small{color:#64748b}.fec-assinatura{border:1px dashed #94a3b8;border-radius:14px;padding:12px;background:#f8fafc}@media(max-width:1000px){.fec-kpis{grid-template-columns:repeat(3,1fr)}.fec-grid{grid-template-columns:1fr}}@media(max-width:650px){.fec-kpis{grid-template-columns:repeat(2,1fr)}.fec-actions button{width:100%}}`;
+  s.textContent = `.fec-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.fec-kpi{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px}.fec-kpi small{display:block;color:#64748b;font-weight:800}.fec-kpi b{font-size:21px}.fec-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.fec-actions{display:flex;gap:8px;flex-wrap:wrap}.fec-box{border:1px solid #e5e7eb;border-radius:14px;padding:10px;margin-bottom:8px;background:#fff}.fec-box b{display:block}.fec-box small{color:#64748b}.fec-assinatura{border:1px dashed #94a3b8;border-radius:14px;padding:12px;background:#f8fafc}.fec-status-cancelado{background:#fee2e2;color:#991b1b}.fec-status-fechado{background:#dcfce7;color:#166534}.fec-cancel-note{border-color:#fecaca;background:#fff7f7}@media(max-width:1000px){.fec-kpis{grid-template-columns:repeat(3,1fr)}.fec-grid{grid-template-columns:1fr}}@media(max-width:650px){.fec-kpis{grid-template-columns:repeat(2,1fr)}.fec-actions button{width:100%}}`;
   document.head.appendChild(s);
 }
 function inject(){
@@ -35,7 +34,7 @@ function inject(){
     sec.id = 'page-fechamento-clean'; sec.className = 'page';
     sec.innerHTML = `
       <div class="card">
-        <div class="table-head"><div><h2>Fechamento operacional</h2><p>Fechamento formal por período com assinatura, auditoria, histórico no banco e PDF jsPDF.</p></div><button id="fecReload" class="secondary">Recarregar histórico</button></div>
+        <div class="table-head"><div><h2>Fechamento operacional</h2><p>Fechamento formal por período com assinatura, auditoria, histórico no banco, PDF jsPDF e cancelamento controlado.</p></div><button id="fecReload" class="secondary">Recarregar histórico</button></div>
         <div class="form-grid two"><input id="fecIni" type="date"><input id="fecFim" type="date"></div>
         <div class="form-grid two"><input id="fecResponsavel" placeholder="Responsável pelo fechamento"><input id="fecAssinatura" placeholder="Nome para assinatura operacional"></div>
         <div class="form-grid two"><input id="fecDocumento" placeholder="Documento / matrícula / identificação"><input id="fecObs" placeholder="Observações do fechamento"></div>
@@ -98,6 +97,7 @@ async function gerarPreview(){
     S.preview = {
       preview:true,
       protocolo:'prévia',
+      status:'Prévia',
       periodo_inicio:p.ini,
       periodo_fim:p.fim,
       responsavel:p.responsavel,
@@ -170,6 +170,31 @@ async function salvarFechamento(){
     msg('Fechamento confirmado, salvo no banco e PDF jsPDF gerado.', 'ok');
   }catch(e){ msg(e.message || String(e), 'bad'); }
 }
+async function cancelarFechamento(id){
+  try{
+    const f = S.historico.find(x => x.id === id);
+    if(!f) return msg('Fechamento não encontrado no histórico carregado.', 'bad');
+    if(f.status !== 'Fechado') return msg('Somente fechamento com status Fechado pode ser cancelado.', 'warn');
+    const responsavel = prompt('Responsável pelo cancelamento:', f.responsavel || '')?.trim();
+    if(!responsavel) return;
+    const motivo = prompt('Motivo do cancelamento do fechamento:')?.trim();
+    if(!motivo || motivo.length < 12) return msg('Motivo do cancelamento deve ter pelo menos 12 caracteres.', 'warn');
+    if(!confirm(`Confirmar CANCELAMENTO do fechamento ${f.periodo_inicio} até ${f.periodo_fim}?\n\nO registro não será apagado; ficará como Cancelado.`)) return;
+    msg('Cancelando fechamento via RPC...', 'warn');
+    const res = await call('rpc_cancelar_fechamento_operacional_5w1', {
+      p_fechamento_id:id,
+      p_motivo:motivo,
+      p_responsavel:responsavel,
+      p_client_operation_id:uuid()
+    });
+    const cancelado = res?.fechamento || f;
+    S.ultimo = cancelado;
+    renderFechamento(cancelado);
+    gerarPdf(cancelado);
+    await loadHistorico();
+    msg('Fechamento cancelado, histórico preservado e PDF de cancelamento gerado.', 'ok');
+  }catch(e){ msg(e.message || String(e), 'bad'); }
+}
 async function loadHistorico(){
   try{
     const res = await call('rpc_listar_fechamentos_operacionais_5w', { p_limite:30 });
@@ -192,19 +217,24 @@ function renderFechamento(f){
     kpi('Divergências', num(aud.total)),
     kpi('Valor ativo', br(sf.valor_ativo))
   ].join('');
+  const cancelBox = f.status === 'Cancelado'
+    ? box('Cancelamento', `Cancelado em ${dt(f.cancelado_em)} por ${f.cancelado_responsavel || '-'}`, `Motivo: ${f.cancelado_motivo || '-'} | Protocolo: ${f.cancelamento_protocolo || '-'}`, 'fec-cancel-note')
+    : '';
   $('fecResumo').innerHTML = `
-    ${box('Período', `${f.periodo_inicio} até ${f.periodo_fim}`, f.preview ? 'Prévia não salva' : `Protocolo: ${f.protocolo}`)}
+    ${box('Status', f.status || (f.preview ? 'Prévia' : 'Fechado'), f.preview ? 'Prévia não salva' : `Protocolo: ${f.protocolo}`)}
+    ${box('Período', `${f.periodo_inicio} até ${f.periodo_fim}`, f.preview ? 'Prévia não salva' : `Criado em: ${dt(f.created_at)}`)}
     ${box('Saldo inicial', saldoInicialTexto(f.saldo_inicial), 'Regra: usa fechamento anterior quando existir')}
     ${box('Movimentações', `Entradas ${num(mv.entradas)} • Saídas ${num(mv.saidas)} • Devoluções ${num(mv.devolucoes)} • Baixas ${num(mv.baixas)}`, `Total: ${num(mv.total_movimentos)}`)}
-    ${box('Observação', f.observacao || '-', `Responsável: ${f.responsavel || '-'}`)}`;
+    ${box('Observação', f.observacao || '-', `Responsável: ${f.responsavel || '-'}`)}
+    ${cancelBox}`;
   $('fecAuditoria').innerHTML = `
     ${box('Resumo da auditoria', `Total ${num(aud.total)} • Críticas ${num(aud.criticas)} • Altas ${num(aud.altas)} • Médias ${num(aud.medias)} • Baixas ${num(aud.baixas)}`, Number(aud.total||0) ? 'Fechamento possui pendência de auditoria' : 'Auditoria limpa no momento do fechamento')}
     ${(f.divergencias || []).slice(0,5).map(d=>box(`[${d.gravidade}] ${d.codigo || '-'}`, d.problema || '-', d.sugestao || '')).join('') || '<div class="msg show ok">Nenhuma divergência registrada no fechamento.</div>'}`;
   $('fecStatus').innerHTML = (sf.por_status || []).map(s=>box(s.status, `${num(s.total)} item(ns)`, br(s.valor))).join('') || '<div class="msg show warn">Sem distribuição por status.</div>';
   $('fecAssBox').innerHTML = `<b>${esc(f.assinatura_nome || 'Sem assinatura nominal')}</b><br><small>Documento: ${esc(f.assinatura_documento || '-')}<br>Assinado em: ${esc(dt(f.assinado_em))}<br>Responsável: ${esc(f.responsavel || '-')}</small>`;
 }
-function box(title,body,small=''){
-  return `<div class="fec-box"><b>${esc(title)}</b><small>${esc(body || '')}${small ? '<br>'+esc(small) : ''}</small></div>`;
+function box(title,body,small='', extraClass=''){
+  return `<div class="fec-box ${extraClass}"><b>${esc(title)}</b><small>${esc(body || '')}${small ? '<br>'+esc(small) : ''}</small></div>`;
 }
 function saldoInicialTexto(si){
   if(!si) return 'Não informado';
@@ -213,15 +243,20 @@ function saldoInicialTexto(si){
   return si.mensagem || si.tipo || 'Prévia';
 }
 function renderHistorico(){
-  $('fecHistorico').innerHTML = `<table><thead><tr><th>Data</th><th>Período</th><th>Responsável</th><th>Status</th><th>Auditoria</th><th>Ação</th></tr></thead><tbody>${S.historico.map(f=>`<tr><td>${esc(dt(f.created_at))}</td><td>${esc(f.periodo_inicio)} até ${esc(f.periodo_fim)}</td><td>${esc(f.responsavel)}</td><td>${esc(f.status)}</td><td>${esc(num(f.auditoria_resumo?.total || 0))} diverg.</td><td><button class="secondary" data-fec-pdf="${esc(f.id)}">PDF</button></td></tr>`).join('') || '<tr><td colspan="6">Nenhum fechamento salvo.</td></tr>'}</tbody></table>`;
+  $('fecHistorico').innerHTML = `<table><thead><tr><th>Data</th><th>Período</th><th>Responsável</th><th>Status</th><th>Auditoria</th><th>Ações</th></tr></thead><tbody>${S.historico.map(f=>`<tr><td>${esc(dt(f.created_at))}</td><td>${esc(f.periodo_inicio)} até ${esc(f.periodo_fim)}</td><td>${esc(f.responsavel)}</td><td><span class="badge ${f.status === 'Cancelado' ? 'fec-status-cancelado' : 'fec-status-fechado'}">${esc(f.status)}</span></td><td>${esc(num(f.auditoria_resumo?.total || 0))} diverg.</td><td><div class="fec-actions"><button class="secondary" data-fec-pdf="${esc(f.id)}">PDF</button>${f.status === 'Fechado' ? `<button class="danger" data-fec-cancelar="${esc(f.id)}">Cancelar</button>` : ''}</div></td></tr>`).join('') || '<tr><td colspan="6">Nenhum fechamento salvo.</td></tr>'}</tbody></table>`;
   document.querySelectorAll('[data-fec-pdf]').forEach(btn => btn.onclick = () => {
     const f = S.historico.find(x=>x.id===btn.dataset.fecPdf);
     if(f) gerarPdf(f);
   });
+  document.querySelectorAll('[data-fec-cancelar]').forEach(btn => btn.onclick = () => cancelarFechamento(btn.dataset.fecCancelar));
 }
 function resumoWhats(f){
   const sf = f.saldo_final || {}, mv = f.resumo_movimentos || {}, aud = f.auditoria_resumo || {};
-  return [`📌 FECHAMENTO OPERACIONAL - LIKE ESTOQUE`, `Período: ${f.periodo_inicio} até ${f.periodo_fim}`, `Responsável: ${f.responsavel || '-'}`, `Protocolo: ${f.protocolo || 'prévia'}`, '', 'Saldo final:', `- Ativos: ${sf.equipamentos_ativos || 0}`, `- Em estoque: ${sf.em_estoque || 0}`, `- Com técnico: ${sf.com_tecnico || 0}`, `- Baixados/inativos: ${sf.baixados_inativos || 0}`, '', 'Movimentos:', `- Entradas: ${mv.entradas || 0}`, `- Saídas: ${mv.saidas || 0}`, `- Devoluções: ${mv.devolucoes || 0}`, `- Baixas: ${mv.baixas || 0}`, `- Total: ${mv.total_movimentos || 0}`, '', `Auditoria: ${aud.total || 0} divergência(s)`, `Assinatura: ${f.assinatura_nome || '-'}`].join('\n');
+  const lines = [`📌 FECHAMENTO OPERACIONAL - LIKE ESTOQUE`, `Status: ${f.status || 'Prévia'}`, `Período: ${f.periodo_inicio} até ${f.periodo_fim}`, `Responsável: ${f.responsavel || '-'}`, `Protocolo: ${f.protocolo || 'prévia'}`, '', 'Saldo final:', `- Ativos: ${sf.equipamentos_ativos || 0}`, `- Em estoque: ${sf.em_estoque || 0}`, `- Com técnico: ${sf.com_tecnico || 0}`, `- Baixados/inativos: ${sf.baixados_inativos || 0}`, '', 'Movimentos:', `- Entradas: ${mv.entradas || 0}`, `- Saídas: ${mv.saidas || 0}`, `- Devoluções: ${mv.devolucoes || 0}`, `- Baixas: ${mv.baixas || 0}`, `- Total: ${mv.total_movimentos || 0}`, '', `Auditoria: ${aud.total || 0} divergência(s)`, `Assinatura: ${f.assinatura_nome || '-'}`];
+  if(f.status === 'Cancelado'){
+    lines.push('', 'Cancelamento:', `- Protocolo: ${f.cancelamento_protocolo || '-'}`, `- Responsável: ${f.cancelado_responsavel || '-'}`, `- Data: ${dt(f.cancelado_em)}`, `- Motivo: ${f.cancelado_motivo || '-'}`);
+  }
+  return lines.join('\n');
 }
 async function copiarResumo(){
   const f = S.ultimo || S.preview;
@@ -253,9 +288,12 @@ function gerarPdf(f){
   doc.setFont('helvetica','bold'); doc.setFontSize(19); doc.text('LIKE Estoque',14,y); y+=9;
   doc.setFontSize(14); doc.text('Fechamento operacional por período',14,y); y+=8;
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  y=pdfText(doc,`Protocolo: ${f.protocolo || 'prévia'} | Período: ${f.periodo_inicio} até ${f.periodo_fim}`,14,y);
+  y=pdfText(doc,`Status: ${f.status || 'Prévia'} | Protocolo: ${f.protocolo || 'prévia'} | Período: ${f.periodo_inicio} até ${f.periodo_fim}`,14,y);
   y=pdfText(doc,`Responsável: ${f.responsavel || '-'} | Assinatura: ${f.assinatura_nome || '-'} | Documento: ${f.assinatura_documento || '-'}`,14,y);
   y=pdfText(doc,`Observação: ${f.observacao || '-'}`,14,y,180);
+  if(f.status === 'Cancelado'){
+    y=pdfText(doc,`CANCELAMENTO: ${f.cancelado_motivo || '-'} | Responsável: ${f.cancelado_responsavel || '-'} | Data: ${dt(f.cancelado_em)} | Protocolo: ${f.cancelamento_protocolo || '-'}`,14,y,180);
+  }
   y+=5; doc.setDrawColor(0); doc.line(14,y,196,y); y+=8;
   doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('1. Resumo executivo',14,y); y+=7;
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
@@ -282,7 +320,7 @@ function gerarPdf(f){
   y+=18; doc.setDrawColor(120); doc.line(24,y,92,y); doc.line(118,y,186,y); y+=5;
   doc.setFontSize(9); doc.text('Responsável pelo fechamento',34,y); doc.text('Gestor / Conferência',135,y);
   footer(doc);
-  doc.save(`fechamento_operacional_${f.periodo_inicio}_${f.periodo_fim}.pdf`);
+  doc.save(`fechamento_operacional_${f.status === 'Cancelado' ? 'cancelado_' : ''}${f.periodo_inicio}_${f.periodo_fim}.pdf`);
 }
 
 inject();
