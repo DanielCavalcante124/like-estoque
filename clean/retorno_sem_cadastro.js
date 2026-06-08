@@ -1,6 +1,6 @@
 import { table, call, first } from './api.js?v=3';
 
-const S = { modelos: [], locais: [], tecnicos: [], equipamentos: [] };
+const S = { modelos: [], locais: [], tecnicos: [], equipamentos: [], ultimoComprovante: null };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const br = (v) => Number(v || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -9,6 +9,9 @@ const ativo = (x) => x && x.ativo !== false;
 const norm = (v) => String(v || '').trim();
 const upper = (v) => norm(v).toUpperCase();
 const numberValue = (id) => Number($(id)?.value || 0) || 0;
+const safeFile = (v) => String(v || 'retorno').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'retorno';
+const nowBR = () => new Date().toLocaleString('pt-BR');
+const todayFile = () => new Date().toISOString().slice(0,10);
 
 function msg(text, type=''){
   const el = $('retornoMsg');
@@ -56,7 +59,7 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Retorno sem cadastro</h2>
-            <p>Use quando um equipamento antigo voltou da rua, mas ainda não existe no sistema.</p>
+            <p>Use quando um equipamento antigo voltou da rua, mas ainda não existe no sistema. Gera comprovante PDF/WhatsApp.</p>
           </div>
           <button id="retornoReload" class="secondary">Recarregar dados</button>
         </div>
@@ -93,6 +96,7 @@ function inject(){
           <input id="retornoObs" placeholder="Observação do retorno">
           <div class="actions">
             <button class="primary" type="submit">Registrar retorno</button>
+            <button class="secondary" id="retornoUltimoComprovante" type="button">Último comprovante</button>
             <button class="secondary" id="retornoLimpar" type="button">Limpar</button>
           </div>
         </form>
@@ -122,6 +126,7 @@ function inject(){
   $('retornoReload').onclick = () => loadRetorno().catch(e=>msg(e.message,'bad'));
   $('retornoForm').onsubmit = salvarRetorno;
   $('retornoLimpar').onclick = limparForm;
+  $('retornoUltimoComprovante').onclick = copiarUltimoComprovante;
   $('retornoModeloSelect').onchange = selecionarModelo;
   $('retornoCondicao').onchange = ajustarDestinoPorCondicao;
   $('retornoBusca').oninput = renderTabela;
@@ -220,7 +225,93 @@ function renderPreview(){
     <div class="item"><div><b>${esc(p.tipo)} ${esc(p.marca)} ${esc(p.modelo)}</b><br><small>${esc(p.mac || p.serial || 'Sem MAC/SN')}</small></div><span class="badge">${br(p.custo)}</span></div>
     <div class="item"><div><b>Técnico</b><br><small>${esc(p.tecnico || 'Não informado')}</small></div><span class="badge">Retorno</span></div>
     <div class="item"><div><b>Condição</b><br><small>${esc(p.condicao)}</small></div><span class="badge">${esc(p.destino)}</span></div>
+    <div class="item"><div><b>Responsável</b><br><small>${esc(p.responsavel || 'Não informado')}</small></div></div>
     <div class="item"><div><b>Observação</b><br><small>${esc(p.obs || 'Sem observação')}</small></div></div>`;
+}
+
+function snapshot(p, result, protocolo){
+  return {
+    protocolo,
+    gerado_em: nowBR(),
+    codigo: result?.codigo || 'gerado',
+    status: result?.status || 'Registrado',
+    tipo: result?.tipo || p.tipo,
+    marca: result?.marca || p.marca,
+    modelo: result?.modelo || p.modelo,
+    mac: result?.mac || p.mac,
+    serial: result?.serial || p.serial,
+    tecnico: result?.tecnico_devolucao || p.tecnico,
+    condicao: result?.condicao_retorno || p.condicao,
+    destino: result?.local || p.destino,
+    custo: result?.custo ?? p.custo,
+    responsavel: p.responsavel,
+    obs: p.obs
+  };
+}
+function textoComprovante(c){
+  const linhas = [];
+  linhas.push('✅ COMPROVANTE DE RETORNO SEM CADASTRO');
+  linhas.push('Protocolo: ' + (c.protocolo || '-'));
+  linhas.push('Data/Hora: ' + (c.gerado_em || nowBR()));
+  linhas.push('Código gerado: ' + (c.codigo || '-'));
+  linhas.push('Equipamento: ' + [c.tipo,c.marca,c.modelo].filter(Boolean).join(' '));
+  linhas.push('MAC/SN: ' + (c.mac || c.serial || '-'));
+  linhas.push('Técnico que devolveu: ' + (c.tecnico || 'Não informado'));
+  linhas.push('Condição: ' + (c.condicao || '-'));
+  linhas.push('Destino: ' + (c.destino || '-'));
+  linhas.push('Custo estimado: ' + br(c.custo));
+  linhas.push('Responsável: ' + (c.responsavel || 'Não informado'));
+  if(c.obs) linhas.push('Obs: ' + c.obs);
+  linhas.push('');
+  linhas.push('Retorno sem cadastro registrado e conferido para regularização do estoque.');
+  return linhas.join('\n');
+}
+async function copiarTexto(texto, okMsg){
+  try{
+    await navigator.clipboard.writeText(texto);
+    if(okMsg) msg(okMsg, 'ok');
+  }catch(e){
+    window.prompt('Copie o comprovante:', texto);
+  }
+}
+async function copiarUltimoComprovante(){
+  if(!S.ultimoComprovante) return msg('Nenhum comprovante gerado nesta sessão.', 'warn');
+  await copiarTexto(textoComprovante(S.ultimoComprovante), 'Último comprovante copiado para WhatsApp.');
+}
+function addPdfText(doc, text, x, y, maxWidth, lineHeight=5){
+  const lines = doc.splitTextToSize(String(text ?? '-'), maxWidth);
+  for(const line of lines){
+    if(y > 282){ doc.addPage(); y = 16; }
+    doc.text(line, x, y);
+    y += lineHeight;
+  }
+  return y;
+}
+function gerarPdf(c){
+  if(!window.jspdf?.jsPDF) throw new Error('Biblioteca jsPDF não carregou.');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  let y = 14;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text('LIKE Estoque', 12, y); y += 8;
+  doc.setFontSize(13); doc.text('Comprovante de retorno sem cadastro', 12, y); y += 7;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  y = addPdfText(doc, `Protocolo: ${c.protocolo || '-'} | Gerado em: ${c.gerado_em || nowBR()}`, 12, y, 186);
+  y = addPdfText(doc, `Código: ${c.codigo || '-'} | Status: ${c.status || '-'} | Destino: ${c.destino || '-'}`, 12, y, 186);
+  y = addPdfText(doc, `Técnico: ${c.tecnico || '-'} | Condição: ${c.condicao || '-'} | Responsável: ${c.responsavel || '-'}`, 12, y, 186);
+  y = addPdfText(doc, `Custo estimado: ${br(c.custo)} | Observação: ${c.obs || '-'}`, 12, y, 186);
+  y += 4; doc.setDrawColor(210); doc.line(12, y, 198, y); y += 7;
+  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Equipamento recebido', 12, y); y += 7;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  y = addPdfText(doc, `Modelo: ${[c.tipo,c.marca,c.modelo].filter(Boolean).join(' ')}`, 12, y, 186);
+  y = addPdfText(doc, `MAC/SN: ${c.mac || c.serial || '-'}`, 12, y, 186);
+  y += 20;
+  if(y > 250){ doc.addPage(); y = 30; }
+  doc.setDrawColor(120); doc.line(20, y, 90, y); doc.line(120, y, 190, y); y += 5;
+  doc.setFontSize(9); doc.text('Responsável pelo recebimento', 28, y); doc.text('Conferência / Regularização', 133, y);
+  doc.setFontSize(8); doc.setTextColor(110); doc.text('Documento gerado pelo LIKE Estoque • Retorno sem cadastro.', 12, 290); doc.setTextColor(0);
+  const filename = `comprovante_retorno_sem_cadastro_${safeFile(c.codigo || c.modelo)}_${todayFile()}.pdf`;
+  doc.save(filename);
+  return filename;
 }
 
 async function salvarRetorno(ev){
@@ -228,6 +319,7 @@ async function salvarRetorno(ev){
   try{
     const p = payload();
     msg('Registrando retorno sem cadastro via RPC...', 'warn');
+    const protocolo = opId();
     const result = first(await call('rpc_registrar_retorno_sem_cadastro', {
       p_tipo: p.tipo,
       p_marca: p.marca,
@@ -240,9 +332,19 @@ async function salvarRetorno(ev){
       p_observacao: p.obs,
       p_responsavel: p.responsavel,
       p_custo: p.custo,
-      p_client_operation_id: opId()
+      p_client_operation_id: protocolo
     }));
-    msg(`Retorno sem cadastro registrado. Código: ${result?.codigo || 'gerado'}.`, 'ok');
+    const comp = snapshot(p, result, protocolo);
+    S.ultimoComprovante = comp;
+    let pdfMsg = '';
+    try{
+      const file = gerarPdf(comp);
+      pdfMsg = ` PDF gerado: ${file}.`;
+    }catch(pdfErr){
+      pdfMsg = ` PDF não gerado: ${pdfErr.message}.`;
+    }
+    await copiarTexto(textoComprovante(comp), '');
+    msg(`Retorno sem cadastro registrado. Código: ${result?.codigo || 'gerado'}. Comprovante WhatsApp copiado.${pdfMsg}`, 'ok');
     limparForm(false);
     await loadRetorno();
   }catch(e){ msg(e.message || String(e), 'bad'); }
