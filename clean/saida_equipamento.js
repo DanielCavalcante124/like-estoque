@@ -28,11 +28,11 @@ function isDisponivel(e){
   return status === 'em estoque' || status === 'reservado' || !status;
 }
 function destinoPadrao(tipo){
-  if(tipo === 'Enviar para técnico') return $('saidaTecnico')?.value || '';
-  if(tipo === 'Instalação cliente') return $('saidaCliente')?.value || 'Cliente';
-  if(tipo === 'Enviar para rua') return 'Rua';
-  if(tipo === 'Reservar para OS') return 'Reservado';
-  if(tipo === 'Enviar para manutenção') return 'Manutenção';
+  if(tipo === 'Enviar para técnico') return 'Backup técnico';
+  if(tipo === 'Instalação cliente') return $('saidaCliente')?.value || 'Cliente final';
+  if(tipo === 'Enviar para rua') return 'Na rua';
+  if(tipo === 'Reservar para OS') return 'Backup técnico';
+  if(tipo === 'Enviar para manutenção') return 'Bancada técnica';
   return '';
 }
 
@@ -83,7 +83,7 @@ function inject(){
             <input id="saidaOs" placeholder="OS / Atendimento">
           </div>
           <div class="form-grid two">
-            <input id="saidaDestino" placeholder="Destino">
+            <input id="saidaDestino" placeholder="Destino padronizado" readonly>
             <input id="saidaMotivo" placeholder="Motivo">
           </div>
           <input id="saidaObs" placeholder="Observação">
@@ -126,7 +126,7 @@ function inject(){
   $('saidaEquipamento').onchange = () => { S.selecionado = equipamentoSelecionado(); renderPreview(); };
   $('saidaTipo').onchange = () => { ajustarCamposPorTipo(); renderPreview(); };
   $('saidaTecnico').onchange = () => { ajustarDestino(); renderPreview(); };
-  ['saidaCliente','saidaOs','saidaDestino','saidaMotivo','saidaObs','saidaFiltroTabela'].forEach(id=>{
+  ['saidaCliente','saidaOs','saidaMotivo','saidaObs','saidaFiltroTabela'].forEach(id=>{
     const el=$(id); if(el) el.addEventListener('input',()=>{ if(id==='saidaFiltroTabela') renderTabela(); else { ajustarDestino(false); renderPreview(); } });
   });
   document.addEventListener('click', ev => {
@@ -154,6 +154,7 @@ async function loadSaida(){
   S.tecnicos = await table('tecnicos','nome',true);
   S.locais = await table('locais','nome',true);
   fillTecnicos();
+  ajustarDestino();
   renderEquipSelect();
   renderTabela();
   renderPreview();
@@ -179,13 +180,13 @@ function ajustarCamposPorTipo(){
     $('saidaTecnico').value = '';
     $('saidaCliente').value = '';
     $('saidaOs').value = '';
-    $('saidaDestino').value = 'Manutenção';
+    $('saidaDestino').value = 'Bancada técnica';
     $('saidaMotivo').value = $('saidaMotivo').value || 'Teste/manutenção';
   } else if(tipo === 'Enviar para rua'){
-    $('saidaDestino').value = 'Rua';
+    $('saidaDestino').value = 'Na rua';
     $('saidaMotivo').value = $('saidaMotivo').value || 'Equipamento enviado para campo';
   } else if(tipo === 'Reservar para OS'){
-    $('saidaDestino').value = 'Reservado';
+    $('saidaDestino').value = 'Backup técnico';
     $('saidaMotivo').value = $('saidaMotivo').value || 'Reserva operacional';
   } else {
     ajustarDestino();
@@ -204,7 +205,7 @@ function payload(){
   const tecnico = norm($('saidaTecnico').value);
   const cliente = norm($('saidaCliente').value);
   const os = norm($('saidaOs').value);
-  const destino = norm($('saidaDestino').value) || destinoPadrao(tipo);
+  const destino = destinoPadrao(tipo);
   const motivo = norm($('saidaMotivo').value);
   const obs = norm($('saidaObs').value);
   if(!eq) throw new Error('Selecione um equipamento disponível.');
@@ -217,7 +218,8 @@ function payload(){
   }
   if(tipo === 'Enviar para rua' && !tecnico) throw new Error('Selecione o técnico responsável pelo equipamento na rua.');
   if(tipo === 'Reservar para OS' && !os) throw new Error('Informe a OS da reserva.');
-  if(!destino) throw new Error('Informe o destino.');
+  if(!destino) throw new Error('Destino padronizado inválido.');
+  if($('saidaDestino')) $('saidaDestino').value = destino;
   return { eq, tipo, tecnico, cliente, os, destino, motivo, obs };
 }
 
@@ -233,16 +235,17 @@ function renderPreview(){
   let p;
   try{ p = payload(); }
   catch(e){ $('saidaPreview').innerHTML = `<div class="item"><b>Pendente</b><small>${esc(e.message)}</small></div>`; $('saidaRegra').textContent = e.message; return; }
-  $('saidaRegra').textContent = 'Revise os dados antes de confirmar a saída. Após confirmar, o sistema gera PDF e copia WhatsApp.';
+  $('saidaRegra').textContent = 'Revise os dados antes de confirmar a saída. O destino/local é padronizado pelo sistema para evitar divergência de auditoria.';
   $('saidaPreview').innerHTML = resumoHtml(p);
 }
+
 async function abrirConfirmacao(ev){
   ev.preventDefault();
   try{
     const p = payload();
     const ok = await openMovimentacaoModal({
       title: 'Confirmar saída',
-      subtitle: 'A saída altera status, local e histórico do equipamento. Depois da confirmação será gerado comprovante PDF e texto WhatsApp.',
+      subtitle: 'A saída altera status, local e histórico do equipamento. O local é padronizado automaticamente.',
       html: resumoHtml(p),
       confirmText: 'Confirmar saída e gerar comprovante'
     });
@@ -258,7 +261,7 @@ function snapshot(p, result, protocolo){
     tecnico: p.tecnico,
     cliente: p.cliente,
     os: p.os,
-    destino: p.destino,
+    destino: result?.local || p.destino,
     motivo: p.motivo,
     obs: p.obs,
     status_final: result?.status || result?.status_final || 'Atualizado',
@@ -279,7 +282,7 @@ function textoComprovante(s){
   linhas.push('Protocolo: ' + (s.protocolo || '-'));
   linhas.push('Data/Hora: ' + (s.gerado_em || nowBR()));
   linhas.push('Movimento: ' + (s.tipo || '-'));
-  linhas.push('Destino: ' + (s.destino || '-'));
+  linhas.push('Destino/Local: ' + (s.destino || '-'));
   if(s.tecnico) linhas.push('Técnico: ' + s.tecnico);
   if(s.cliente) linhas.push('Cliente/Local: ' + s.cliente);
   linhas.push('OS/Ref: ' + (s.os || 'Não informada'));
@@ -322,7 +325,7 @@ function gerarPdf(s){
   doc.setFontSize(13); doc.text('Comprovante de saída de equipamento', 12, y); y += 7;
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   y = addPdfText(doc, `Protocolo: ${s.protocolo || '-'} | Gerado em: ${s.gerado_em || nowBR()}`, 12, y, 186);
-  y = addPdfText(doc, `Movimento: ${s.tipo || '-'} | Destino: ${s.destino || '-'} | Status final: ${s.status_final || '-'}`, 12, y, 186);
+  y = addPdfText(doc, `Movimento: ${s.tipo || '-'} | Destino/Local: ${s.destino || '-'} | Status final: ${s.status_final || '-'}`, 12, y, 186);
   y = addPdfText(doc, `Técnico: ${s.tecnico || '-'} | Cliente/Local: ${s.cliente || '-'} | OS/Ref: ${s.os || 'Não informada'}`, 12, y, 186);
   y = addPdfText(doc, `Motivo: ${s.motivo || '-'} | Observação: ${s.obs || '-'}`, 12, y, 186);
   y += 4; doc.setDrawColor(210); doc.line(12, y, 198, y); y += 7;
@@ -367,7 +370,7 @@ async function confirmarSaida(p){
       pdfMsg = ` PDF não gerado: ${pdfErr.message}.`;
     }
     await copiarTexto(textoComprovante(comp), '');
-    msg(`Saída registrada. Status: ${result?.status || 'atualizado'}. Comprovante WhatsApp copiado.${pdfMsg}`, 'ok');
+    msg(`Saída registrada. Status: ${result?.status || 'atualizado'}. Local: ${result?.local || p.destino}. Comprovante WhatsApp copiado.${pdfMsg}`, 'ok');
     limparForm(false);
     await loadSaida();
   }catch(e){ msg(e.message || String(e),'bad'); }
@@ -377,6 +380,7 @@ function limparForm(show=true){
   ['saidaBuscaEquipamento','saidaEquipamento','saidaTecnico','saidaCliente','saidaOs','saidaDestino','saidaMotivo','saidaObs'].forEach(id=>{ if($(id)) $(id).value=''; });
   if($('saidaTipo')) $('saidaTipo').value='Enviar para técnico';
   S.selecionado = null;
+  ajustarDestino();
   renderEquipSelect();
   renderPreview();
   if(show) msg('Formulário limpo.', 'ok');
