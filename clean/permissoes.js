@@ -1,6 +1,6 @@
 import { call } from './api.js?v=3';
 
-const S = { ctx:null, perms:{}, perfil:'sem_perfil' };
+const S = { ctx:null, perms:{}, perfil:'sem_perfil', organizing:false };
 const $ = id => document.getElementById(id);
 const norm = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -52,6 +52,17 @@ const TEXT_RULES = [
   { text:'cadastros', perm:'cadastros' }
 ];
 
+const CATEGORIES = [
+  { key:'principal', label:'Principal', emoji:'🏠', open:true, ids:[''], texts:['dashboard'] },
+  { key:'operacao', label:'Operação', emoji:'⚡', open:true, ids:['navOperacaoRapidaClean','navEntradaClean','navEntradaLoteClean','navSaidaClean','navLotesSaidaClean','navDevolucaoClean','navRetornoSemCadastroClean'], texts:['operação rápida','operacao rapida','entrada','entrada em lote','saída','saida','saída em lote','saida em lote','lotes','devolução','devolucao','retorno sem cadastro'] },
+  { key:'patrimonio', label:'Patrimônio', emoji:'📦', open:false, ids:['navEquipamentosClean','navHistoricoClean','navManutencaoClean','navBaixaClean'], texts:['equipamentos','histórico','historico','manutenção','manutencao','baixa'] },
+  { key:'materiais', label:'Materiais', emoji:'🧰', open:false, ids:['navMateriaisClean'], texts:['materiais'] },
+  { key:'cadastros', label:'Cadastros', emoji:'📝', open:false, ids:['navTecnicosClean'], texts:['cadastros','técnicos','tecnicos'] },
+  { key:'gestao', label:'Gestão', emoji:'📊', open:false, ids:['navRelatoriosClean','navAuditoriaClean','navFechamentoClean','navImpactoFechamentoClean','navAnaliseOperacionalClean'], texts:['relatórios','relatorios','auditoria','fechamento','impacto fechamento','análise operacional','analise operacional'] },
+  { key:'admin', label:'Administração', emoji:'🔐', open:false, ids:['navUsuariosClean','navTestePerfisClean','navBackupClean','navProducaoClean'], texts:['usuários','usuarios','teste perfis','backup','produção','producao'] },
+  { key:'outros', label:'Outros', emoji:'⋯', open:false, ids:[], texts:[] }
+];
+
 function css(){
   if($('permCss')) return;
   const s = document.createElement('style');
@@ -61,6 +72,12 @@ function css(){
     .perm-card{border:1px solid #e5e7eb;border-radius:14px;background:#fff;padding:8px 10px;margin-top:10px;font-size:12px;color:#172033;white-space:normal}
     .perm-card b{display:block;color:#0f172a}.perm-card small{color:#64748b}.perm-denied{border:1px solid #fecaca;background:#fff7f7;color:#991b1b;border-radius:14px;padding:14px;margin:12px 0}
     .mobile-menu-btn,.sidebar-backdrop{display:none}
+    .sidebar-groups{display:grid;gap:8px;margin-top:10px}
+    .side-group{border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.025);overflow:hidden}
+    .side-group-title{display:flex!important;width:100%!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;padding:10px 12px!important;margin:0!important;border-radius:0!important;background:rgba(255,255,255,.055)!important;color:#dbeafe!important;text-align:left!important;font-size:12px!important;letter-spacing:.02em;text-transform:uppercase;min-height:40px!important}
+    .side-group-title strong{font-size:12px}.side-group-title span:last-child{font-size:14px;transition:transform .16s ease}.side-group.collapsed .side-group-title span:last-child{transform:rotate(-90deg)}
+    .side-group-items{display:grid;gap:4px;padding:6px}.side-group.collapsed .side-group-items{display:none}
+    .side-group-items .nav{margin:0!important}.side-group-empty{display:none!important}
     @media(max-width:900px){
       body{padding-top:58px}
       body.menu-open{overflow:hidden}
@@ -69,11 +86,12 @@ function css(){
       .mobile-menu-btn span{display:block;transform:translateY(-1px)}
       .sidebar-backdrop{display:block;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1000;opacity:0;pointer-events:none;transition:opacity .18s ease}
       body.menu-open .sidebar-backdrop{opacity:1;pointer-events:auto}
-      .sidebar{display:block!important;position:fixed!important;top:0!important;left:0!important;bottom:0!important;width:min(84vw,320px)!important;min-width:0!important;max-width:320px!important;height:100dvh!important;z-index:1001!important;transform:translateX(-104%);transition:transform .22s ease;overflow-y:auto!important;overflow-x:hidden!important;white-space:normal!important;padding:18px 14px calc(22px + env(safe-area-inset-bottom,0px))!important;box-shadow:18px 0 42px rgba(15,23,42,.28)!important;border-right:1px solid #244260!important;border-bottom:0!important;scroll-snap-type:none!important}
+      .sidebar{display:block!important;position:fixed!important;top:0!important;left:0!important;bottom:0!important;width:min(86vw,330px)!important;min-width:0!important;max-width:330px!important;height:100dvh!important;z-index:1001!important;transform:translateX(-104%);transition:transform .22s ease;overflow-y:auto!important;overflow-x:hidden!important;white-space:normal!important;padding:18px 14px calc(22px + env(safe-area-inset-bottom,0px))!important;box-shadow:18px 0 42px rgba(15,23,42,.28)!important;border-right:1px solid #244260!important;border-bottom:0!important;scroll-snap-type:none!important}
       body.menu-open .sidebar{transform:translateX(0)}
       .sidebar .brand{display:block!important;margin:0 0 14px!important;min-width:0!important;padding-left:52px;white-space:normal!important}
       .sidebar .brand strong{font-size:20px!important;line-height:1.15}.sidebar .brand span{display:block!important;max-width:none!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;margin-top:3px}
       .sidebar .nav{display:flex!important;width:100%!important;min-width:0!important;min-height:46px!important;margin:5px 0!important;padding:12px!important;text-align:left!important;justify-content:flex-start!important;align-items:center!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:14px!important;white-space:normal!important;scroll-snap-align:none!important}
+      .side-group-items .nav{margin:0!important}.side-group-title{min-height:44px!important}
       .sidebar .nav.active{box-shadow:inset 4px 0 0 #60a5fa!important;background:#173051!important}
       .legacy-link{display:flex!important;width:100%!important;min-height:44px!important;margin:10px 0!important;align-items:center!important;white-space:normal!important}
       .session-box{display:block!important;width:100%!important;min-width:0!important;margin:12px 0!important;white-space:normal!important}
@@ -102,7 +120,7 @@ function firstAllowedNav(){
 function applyNavRules(){
   NAV_RULES.forEach(r => document.querySelectorAll(r.selector).forEach(el => hideElement(el, !can(r.perm) && !r.fallback)));
 
-  document.querySelectorAll('.nav, aside button, .sidebar button').forEach(el => {
+  document.querySelectorAll('.nav').forEach(el => {
     const t = norm(el.textContent);
     const rule = TEXT_RULES.find(r => t === norm(r.text) || t.includes(norm(r.text)));
     if(rule) hideElement(el, !can(rule.perm));
@@ -112,6 +130,9 @@ function applyNavRules(){
 
   const cadPage = $('page-cadastros');
   if(cadPage) cadPage.classList.toggle('perm-hidden', !can('cadastros'));
+
+  organizeSidebar();
+  updateGroupVisibility();
 
   const activeDenied = document.querySelector('.page.active.perm-hidden, .page.active [data-perm-denied="1"]');
   const activeNavDenied = document.querySelector('.nav.active.perm-hidden');
@@ -143,6 +164,91 @@ function resumoPermissoes(){
   if(S.perms.cadastros) list.push('cadastros');
   if(S.perms.backup) list.push('backup');
   return list.length ? list.join(' • ') : 'acesso restrito';
+}
+function categoryForNav(el){
+  const id = el.id || '';
+  const txt = norm(el.textContent);
+  if(el.matches('[data-page="dashboard"]')) return 'principal';
+  if(el.matches('[data-page="cadastros"]')) return 'cadastros';
+  for(const cat of CATEGORIES){
+    if(cat.ids.includes(id)) return cat.key;
+    if(cat.texts.some(t => txt === norm(t) || txt.includes(norm(t)))) return cat.key;
+  }
+  return 'outros';
+}
+function getStoredGroupState(key, def){
+  const raw = localStorage.getItem(`like.sidebar.group.${key}`);
+  if(raw === 'open') return true;
+  if(raw === 'closed') return false;
+  return !!def;
+}
+function ensureSidebarGroups(){
+  const side = document.querySelector('.sidebar');
+  if(!side) return null;
+  let root = $('sidebarGroups');
+  if(!root){
+    root = document.createElement('div');
+    root.id = 'sidebarGroups';
+    root.className = 'sidebar-groups';
+    const brand = side.querySelector('.brand');
+    brand ? brand.insertAdjacentElement('afterend', root) : side.prepend(root);
+  }
+  CATEGORIES.forEach(cat => {
+    let group = $(`sideGroup-${cat.key}`);
+    if(!group){
+      group = document.createElement('div');
+      group.id = `sideGroup-${cat.key}`;
+      group.className = 'side-group';
+      group.dataset.group = cat.key;
+      const open = getStoredGroupState(cat.key, cat.open);
+      group.classList.toggle('collapsed', !open);
+      group.innerHTML = `<button type="button" class="side-group-title" data-group-toggle="${esc(cat.key)}"><strong>${esc(cat.emoji)} ${esc(cat.label)}</strong><span>▾</span></button><div class="side-group-items" id="sideGroupItems-${esc(cat.key)}"></div>`;
+      root.appendChild(group);
+      group.querySelector('.side-group-title').onclick = () => {
+        group.classList.toggle('collapsed');
+        localStorage.setItem(`like.sidebar.group.${cat.key}`, group.classList.contains('collapsed') ? 'closed' : 'open');
+      };
+    }
+  });
+  return root;
+}
+function organizeSidebar(){
+  if(S.organizing) return;
+  const side = document.querySelector('.sidebar');
+  if(!side) return;
+  S.organizing = true;
+  try{
+    const root = ensureSidebarGroups();
+    if(!root) return;
+    const navs = Array.from(side.querySelectorAll('.nav')).filter(el => !el.closest('.side-group-items'));
+    navs.forEach(nav => {
+      const key = categoryForNav(nav);
+      const target = $(`sideGroupItems-${key}`) || $('sideGroupItems-outros');
+      target?.appendChild(nav);
+    });
+    const legacy = side.querySelector('.legacy-link');
+    const session = side.querySelector('.session-box');
+    const profile = $('permProfileCard');
+    if(legacy) side.appendChild(legacy);
+    if(session) side.appendChild(session);
+    if(profile) side.appendChild(profile);
+  } finally {
+    S.organizing = false;
+  }
+}
+function updateGroupVisibility(){
+  CATEGORIES.forEach(cat => {
+    const group = $(`sideGroup-${cat.key}`);
+    const items = $(`sideGroupItems-${cat.key}`);
+    if(!group || !items) return;
+    const visible = Array.from(items.querySelectorAll('.nav')).filter(el => !el.classList.contains('perm-hidden'));
+    group.classList.toggle('side-group-empty', visible.length === 0);
+    const hasActive = visible.some(el => el.classList.contains('active'));
+    if(hasActive){
+      group.classList.remove('collapsed');
+      localStorage.setItem(`like.sidebar.group.${cat.key}`, 'open');
+    }
+  });
 }
 async function loadContext(){
   try{
@@ -202,6 +308,7 @@ function observe(){
 function boot(){
   css();
   setupSidebarLateral();
+  organizeSidebar();
   protectClicks();
   observe();
   document.addEventListener('like:session', ev => { if(ev.detail?.user) loadContext(); else { S.ctx=null; S.perms={}; applyNavRules(); closeSidebar(); } });
