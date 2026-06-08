@@ -1,6 +1,6 @@
 import { call } from './api.js?v=3';
 
-const S = { health:null };
+const S = { health:null, contexto:null, admin:false };
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const num = v => Number(v || 0).toLocaleString('pt-BR');
@@ -17,6 +17,32 @@ function css(){
   s.textContent = `.prod-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.prod-kpi{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px}.prod-kpi small{display:block;color:#64748b;font-weight:800}.prod-kpi b{font-size:21px}.prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.prod-actions{display:flex;gap:8px;flex-wrap:wrap}.prod-box{border:1px solid #e5e7eb;border-radius:14px;padding:10px;margin-bottom:8px;background:#fff}.prod-box b{display:block}.prod-box small{color:#64748b}.prod-ok{border-color:#16a34a;background:#f0fdf4}.prod-warn{border-color:#eab308;background:#fffbeb}.prod-bad{border-color:#dc2626;background:#fff7f7}.prod-status{border-width:2px}@media(max-width:1000px){.prod-kpis{grid-template-columns:repeat(3,1fr)}.prod-grid{grid-template-columns:1fr}}@media(max-width:650px){.prod-kpis{grid-template-columns:repeat(2,1fr)}.prod-actions button{width:100%}}`;
   document.head.appendChild(s);
 }
+function removeAdminUi(){
+  const nav = $('navProducaoClean');
+  const page = $('page-producao-clean');
+  const wasActive = nav?.classList.contains('active') || page?.classList.contains('active');
+  if(nav) nav.remove();
+  if(page) page.remove();
+  if(wasActive){
+    document.querySelector('[data-page="dashboard"]')?.click();
+    const title = $('pageTitle');
+    if(title) title.textContent = 'Dashboard';
+  }
+}
+async function ensureAdminAccess(){
+  try{
+    const ctx = await call('rpc_usuario_contexto_6a1', {});
+    S.contexto = ctx;
+    S.admin = !!ctx?.is_admin;
+    if(S.admin) inject(); else removeAdminUi();
+    return S.admin;
+  }catch(e){
+    S.contexto = null;
+    S.admin = false;
+    removeAdminUi();
+    return false;
+  }
+}
 function inject(){
   css();
   if(!$('navProducaoClean')){
@@ -26,7 +52,7 @@ function inject(){
     b.className = 'nav';
     b.textContent = 'Produção';
     b.onclick = show;
-    ref ? ref.insertAdjacentElement('afterend', b) : document.querySelector('.sidebar').appendChild(b);
+    ref ? ref.insertAdjacentElement('afterend', b) : document.querySelector('.sidebar')?.appendChild(b);
   }
   if(!$('page-producao-clean')){
     const sec = document.createElement('section');
@@ -35,11 +61,11 @@ function inject(){
     sec.innerHTML = `
       <div class="card">
         <div class="table-head">
-          <div><h2>Hardening de produção</h2><p>Healthcheck técnico de segurança, RLS, RPCs anônimas, auditoria, período e contagens do sistema.</p></div>
+          <div><h2>Hardening de produção</h2><p>Painel interno restrito ao administrador. Valida RLS, RPCs anônimas, auditoria, período e contagens do sistema.</p></div>
           <button id="prodReload" class="secondary">Executar healthcheck</button>
         </div>
         <div class="prod-actions"><button id="prodPdf" class="secondary">Baixar PDF técnico</button><button id="prodWhats" class="secondary">Copiar resumo WhatsApp</button></div>
-        <div id="prodMsg" class="msg show">Execute o healthcheck para validar produção.</div>
+        <div id="prodMsg" class="msg show">Acesso restrito ao administrador. Execute o healthcheck para validar produção.</div>
       </div>
       <div id="prodStatus"></div>
       <div id="prodKpis" class="prod-kpis"></div>
@@ -48,13 +74,18 @@ function inject(){
         <div class="card"><h2>Auditoria e período</h2><div id="prodAuditoria"></div></div>
       </div>
       <div class="card"><h2>Checklist operacional de produção</h2><div id="prodChecklist"></div></div>`;
-    document.querySelector('.main').appendChild(sec);
+    document.querySelector('.main')?.appendChild(sec);
   }
   $('prodReload').onclick = load;
   $('prodPdf').onclick = () => S.health ? gerarPdf(S.health) : msg('Execute o healthcheck antes do PDF.', 'warn');
   $('prodWhats').onclick = copiarWhats;
 }
-function show(){
+async function show(){
+  const ok = S.admin || await ensureAdminAccess();
+  if(!ok){
+    alert('Acesso restrito ao administrador.');
+    return;
+  }
   inject();
   document.querySelectorAll('.nav').forEach(b => b.classList.toggle('active', b.id === 'navProducaoClean'));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-producao-clean'));
@@ -62,6 +93,8 @@ function show(){
 }
 async function load(){
   try{
+    const ok = S.admin || await ensureAdminAccess();
+    if(!ok) throw new Error('Acesso restrito ao administrador.');
     msg('Executando healthcheck de produção...', 'warn');
     const health = await call('rpc_healthcheck_producao_6a', {});
     S.health = health;
@@ -79,7 +112,7 @@ function render(h){
   const periodo = h.periodo_atual || {};
   const tabelasSemRls = h.tabelas_sem_rls || [];
   const rpcAnon = h.rpc_executaveis_por_anon || [];
-  $('prodStatus').innerHTML = `<div class="card prod-status ${h.ok ? 'prod-ok' : 'prod-bad'}"><div class="table-head"><div><h2>Status de produção</h2><p>${esc(h.recomendacao || '-')}</p></div><span class="badge">${h.ok ? 'Aprovado' : 'Pendência'}</span></div>${box('Gerado em', dt(h.gerado_em), 'Healthcheck não altera dados.')}</div>`;
+  $('prodStatus').innerHTML = `<div class="card prod-status ${h.ok ? 'prod-ok' : 'prod-bad'}"><div class="table-head"><div><h2>Status de produção</h2><p>${esc(h.recomendacao || '-')}</p></div><span class="badge">${h.ok ? 'Aprovado' : 'Pendência'}</span></div>${box('Gerado em', dt(h.gerado_em), `Restrito a admin: ${h.restrito_admin ? 'Sim' : 'Não'}. Healthcheck não altera dados.`)}</div>`;
   $('prodKpis').innerHTML = [
     kpi('Equipamentos', num(c.equipamentos)),
     kpi('Movimentos', num(c.movimentos)),
@@ -88,6 +121,7 @@ function render(h){
     kpi('Usuários perfil', num(c.usuarios_perfil))
   ].join('');
   $('prodSeguranca').innerHTML = `
+    ${box('Acesso', 'Somente administrador', 'Backend exige app_assert_admin(). Frontend apenas oculta o menu para não-admin.', 'prod-ok')}
     ${box('RLS', tabelasSemRls.length ? `${num(tabelasSemRls.length)} tabela(s) sem RLS` : 'Todas as tabelas auditadas com RLS ativo', tabelasSemRls.join(', ') || 'Sem pendências automáticas.', tabelasSemRls.length ? 'prod-bad' : 'prod-ok')}
     ${box('RPCs anônimas', rpcAnon.length ? `${num(rpcAnon.length)} RPC(s) exposta(s)` : 'Nenhuma RPC executável por anon', rpcAnon.map(x => x.funcao).join(', ') || 'Superfície anônima zerada.', rpcAnon.length ? 'prod-bad' : 'prod-ok')}
     ${box('Cores internas', 'Execução direta bloqueada por hardening 6A', 'Fluxo externo deve passar pelos wrappers RPC públicos autenticados.', 'prod-ok')}`;
@@ -97,14 +131,14 @@ function render(h){
   $('prodChecklist').innerHTML = [
     box('1. Backup Supabase', 'Executar export/backup antes de uso contínuo', 'Não é automatizado por esta tela.', 'prod-warn'),
     box('2. Usuários e perfis', `${num(c.usuarios_perfil)} perfil(is) cadastrado(s)`, 'Validar se cada usuário tem perfil correto.'),
-    box('3. GitHub Pages', 'Usar URL com cache bust após deploy', '/index-clean.html?v=6a-producao'),
+    box('3. GitHub Pages', 'Usar URL com cache bust após deploy', '/index-clean.html?v=6a1-admin-producao'),
     box('4. Dependências externas', 'Supabase JS e jsPDF carregam via CDN', 'Se quiser reduzir risco, hospedar cópias locais futuramente.', 'prod-warn'),
     box('5. Auditoria diária', 'Executar Produção + Análise operacional no início/fim do expediente', 'Mantém divergência visível antes de virar problema.')
   ].join('');
 }
 function resumoWhats(h){
   const c = h.contagens || {}, aud = h.auditoria_resumo || {}, rpcAnon = h.rpc_executaveis_por_anon || [], semRls = h.tabelas_sem_rls || [];
-  return [`🛡️ HEALTHCHECK PRODUÇÃO - LIKE ESTOQUE`, `Status: ${h.ok ? 'Aprovado' : 'Pendência'}`, `Gerado em: ${dt(h.gerado_em)}`, '', `Equipamentos: ${c.equipamentos || 0}`, `Movimentos: ${c.movimentos || 0}`, `Fechamentos: ${c.fechamentos || 0}`, `Auditoria: ${aud.total || 0} divergência(s)`, `Tabelas sem RLS: ${semRls.length}`, `RPCs anon: ${rpcAnon.length}`, '', `Recomendação: ${h.recomendacao || '-'}`].join('\n');
+  return [`🛡️ HEALTHCHECK PRODUÇÃO - LIKE ESTOQUE`, `Status: ${h.ok ? 'Aprovado' : 'Pendência'}`, `Restrito admin: ${h.restrito_admin ? 'Sim' : 'Não'}`, `Gerado em: ${dt(h.gerado_em)}`, '', `Equipamentos: ${c.equipamentos || 0}`, `Movimentos: ${c.movimentos || 0}`, `Fechamentos: ${c.fechamentos || 0}`, `Auditoria: ${aud.total || 0} divergência(s)`, `Tabelas sem RLS: ${semRls.length}`, `RPCs anon: ${rpcAnon.length}`, '', `Recomendação: ${h.recomendacao || '-'}`].join('\n');
 }
 async function copiarWhats(){
   if(!S.health) return msg('Execute o healthcheck antes de copiar.', 'warn');
@@ -112,7 +146,7 @@ async function copiarWhats(){
   catch(e){ window.prompt('Copie o resumo:', resumoWhats(S.health)); }
 }
 function pdfText(doc,text,x,y,w=180,lh=5){ const lines = doc.splitTextToSize(String(text ?? '-'),w); lines.forEach(line => { if(y>280){ doc.addPage(); y=16; } doc.text(line,x,y); y+=lh; }); return y; }
-function footer(doc){ const p = doc.internal.getCurrentPageInfo().pageNumber; doc.setFontSize(8); doc.setTextColor(110); doc.text('LIKE Estoque • Hardening de produção 6A • Documento interno',14,287); doc.text(`Página ${p}`,180,287); doc.setTextColor(0); }
+function footer(doc){ const p = doc.internal.getCurrentPageInfo().pageNumber; doc.setFontSize(8); doc.setTextColor(110); doc.text('LIKE Estoque • Hardening de produção 6A.1 • Documento interno',14,287); doc.text(`Página ${p}`,180,287); doc.setTextColor(0); }
 function gerarPdf(h){
   if(!window.jspdf?.jsPDF) return msg('jsPDF não carregou.', 'bad');
   const { jsPDF } = window.jspdf;
@@ -120,9 +154,9 @@ function gerarPdf(h){
   const c = h.contagens || {}, aud = h.auditoria_resumo || {}, periodo = h.periodo_atual || {};
   let y = 18;
   doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text('LIKE Estoque',14,y); y+=9;
-  doc.setFontSize(14); doc.text('Healthcheck de produção 6A',14,y); y+=8;
+  doc.setFontSize(14); doc.text('Healthcheck de produção 6A.1',14,y); y+=8;
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  y = pdfText(doc, `Status: ${h.ok ? 'Aprovado' : 'Pendência'} | Gerado em: ${dt(h.gerado_em)}`,14,y);
+  y = pdfText(doc, `Status: ${h.ok ? 'Aprovado' : 'Pendência'} | Restrito admin: ${h.restrito_admin ? 'Sim' : 'Não'} | Gerado em: ${dt(h.gerado_em)}`,14,y);
   y = pdfText(doc, `Recomendação: ${h.recomendacao || '-'}`,14,y,180);
   y+=4; doc.setDrawColor(0); doc.line(14,y,196,y); y+=8;
   doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('1. Indicadores técnicos',14,y); y+=7;
@@ -133,8 +167,16 @@ function gerarPdf(h){
   y+=10; doc.setDrawColor(120); doc.line(24,y,92,y); doc.line(118,y,186,y); y+=5;
   doc.setFontSize(9); doc.text('Responsável técnico',39,y); doc.text('Gestor / Conferência',137,y);
   footer(doc);
-  doc.save('healthcheck_producao_6a.pdf');
+  doc.save('healthcheck_producao_6a1_admin.pdf');
+}
+function bootAdminGuard(){
+  document.addEventListener('like:session', ev => {
+    if(ev.detail?.user) ensureAdminAccess(); else removeAdminUi();
+  });
+  setTimeout(ensureAdminAccess, 1200);
+  setTimeout(ensureAdminAccess, 3500);
 }
 
-inject();
+bootAdminGuard();
 window.producaoHealthcheckLoad = load;
+window.producaoAdminRefresh = ensureAdminAccess;
