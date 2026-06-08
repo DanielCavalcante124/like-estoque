@@ -4,23 +4,36 @@ Data: 2026-06-08
 
 ## Objetivo
 
-Criar um relatorio de impacto por fechamento/periodo para conferir quais movimentacoes compoem um periodo fechado e identificar se existem movimentos apos a criacao do fechamento.
+Criar um relatorio para conferir o impacto de um periodo fechado ou de um periodo manual, mostrando:
+
+- status do fechamento
+- se o periodo esta bloqueado
+- movimentos patrimoniais que compoem o periodo
+- movimentos de materiais que compoem o periodo
+- resumo por tipo
+- resumo por dia
+- resumo por origem
+- movimentos posteriores ao fechamento dentro do periodo, se existirem
+- PDF jsPDF
+- resumo WhatsApp
 
 ## Observacao tecnica importante
 
-Tentativas bloqueadas por trigger nao ficam registradas nas tabelas de movimentos, porque o PostgreSQL reverte a transacao quando a trigger lança erro.
+Tentativas bloqueadas por trigger nao ficam persistidas automaticamente no PostgreSQL.
 
-Portanto, este relatorio mostra:
+Motivo:
+
+- o trigger usa RAISE EXCEPTION para bloquear
+- a transacao inteira e revertida
+- qualquer log inserido dentro da mesma transacao tambem seria revertido
+
+Portanto a 5W.3 registra e exibe:
 
 - movimentos que entraram no periodo
-- movimentos antes da criacao do fechamento
-- movimentos apos a criacao do fechamento, se existirem
-- materiais movimentados no periodo
-- materiais antes/depois da criacao do fechamento
-- dias do periodo e quantidade de movimentos por dia
-- se existe fechamento Fechado bloqueando o periodo
+- movimentos posteriores indevidos dentro do periodo, se existirem
+- status de bloqueio do periodo
 
-Para registrar tentativas bloqueadas no futuro, sera necessaria uma etapa separada com pre-validacao explicita no frontend/RPC antes de tentar movimentar.
+Para registrar tentativa bloqueada como log persistente, a solucao correta futura e validar pela camada de aplicacao/RPC antes de tentar inserir o movimento, ou usar um servico externo de log.
 
 ## Backend
 
@@ -34,133 +47,176 @@ Parametros:
 - p_periodo_inicio date default null
 - p_periodo_fim date default null
 
-Uso:
+Regra:
 
-1. Se informar fechamento_id, o relatorio usa o periodo do fechamento.
-2. Se nao informar fechamento_id, usa periodo_inicio e periodo_fim manuais.
+- se p_fechamento_id for informado, usa o periodo do fechamento
+- se nao for informado, exige periodo_inicio e periodo_fim
 
-## Dados retornados
+## Retorno da RPC
 
-A RPC retorna:
+Retorna JSON com:
 
 - ok
-- gerado_em
+- resumo
+- fechamento
+- movimentos_patrimonio
+- movimentos_materiais
+- pos_fechamento
+
+### resumo
+
+Inclui:
+
 - periodo_inicio
 - periodo_fim
-- fechamento de referencia
-- controle do periodo
-- fechamentos sobrepostos
-- resumo de movimentos patrimoniais
-- resumo de movimentos de materiais
-- lista de movimentos patrimoniais
-- lista de movimentos de materiais
-- resumo por dia
-- auditoria atual
+- fechamento_id
+- fechamento_status
+- fechamento_protocolo
+- fechamento_created_at
+- periodo_bloqueado
+- total_movimentos_patrimonio
+- total_movimentos_materiais
+- quantidade_materiais
+- movimentos_patrimonio_apos_fechamento
+- materiais_apos_fechamento
+- observacao_tecnica
 
-## Classificacao de momento
+### movimentos_patrimonio
 
-Quando existe fechamento de referencia, cada movimento recebe:
+Inclui:
 
-- antes_do_fechamento
-- apos_o_fechamento
+- total
+- por_tipo
+- por_dia
+- por_origem
+- itens
 
-Quando o relatorio e manual sem fechamento:
+### movimentos_materiais
 
-- sem_fechamento_referencia
+Inclui:
 
-## Limites de detalhe
+- total
+- quantidade_total
+- por_tipo
+- por_dia
+- por_origem
+- itens
 
-Para evitar resposta pesada:
+### pos_fechamento
 
-- ate 300 movimentos patrimoniais detalhados
-- ate 300 movimentos de materiais detalhados
+Inclui:
 
-A tela limita visualmente a 120 itens por tabela.
-O PDF limita a 80 itens por tabela.
+- movimentos_patrimonio_apos_fechamento
+- materiais_apos_fechamento
+
+## Correcao aplicada na RPC
+
+Durante a validacao inicial, foi identificado erro no calculo de quantidade_total de materiais porque o resumo principal nao estava referenciando public.materiais_movimentos.
+
+Correcao aplicada na migration:
+
+- corrigir_rpc_impacto_materiais_5w3
+
+## Validacao no banco
+
+Foi validado usando o fechamento real existente.
+
+Resultado do resumo:
+
+- fechamento_status = Cancelado
+- periodo_bloqueado = false
+- total_movimentos_patrimonio = 31
+- total_movimentos_materiais = 6
+- quantidade_materiais = 42
+- movimentos_patrimonio_apos_fechamento = 0
+- materiais_apos_fechamento = 0
+
+Como o fechamento esta Cancelado, o periodo nao bloqueia movimentacoes, comportamento esperado.
 
 ## Frontend
 
 Arquivo criado:
 
-- clean/fechamento_impacto.js
+- clean/impacto_fechamento.js
 
 Arquivo alterado:
 
 - index-clean.html
 
-## Tela adicionada
+## Tela criada
 
-Dentro da tela Fechamento foi adicionado o card:
+Menu:
 
-- Relatorio de impacto do periodo fechado
+- Impacto fechamento
 
-Campos/controles:
+Campos:
 
-- selecionar fechamento salvo
-- usar periodo manual da tela
-- gerar impacto
-- baixar PDF jsPDF
-- copiar resumo WhatsApp
-- recarregar fechamentos
+- fechamento salvo
+- data inicial
+- data final
+- observacao para PDF/conferencia
+
+Botoes:
+
+- Recarregar fechamentos
+- Gerar relatorio
+- Baixar PDF jsPDF
+- Copiar resumo WhatsApp
+
+## Componentes visuais
+
+A tela exibe:
+
+- KPIs de impacto
+- card de controle do periodo
+- patrimonio por tipo
+- materiais por tipo
+- patrimonio por dia
+- materiais por dia
+- tabela de movimentos patrimoniais
+- tabela de movimentos de materiais
 
 ## PDF jsPDF
 
-O PDF contem:
+O PDF inclui:
 
 - periodo
-- fechamento/protocolo/status
+- status do fechamento
 - se o periodo esta bloqueado
-- observacao sobre tentativas bloqueadas
+- protocolo
+- data de criacao do fechamento
+- observacao
 - resumo de impacto
-- movimentos por tipo
-- movimentos patrimoniais
-- movimentos de materiais
+- conclusao
+- observacao tecnica
+- patrimonio por tipo
+- materiais por tipo
+- amostra de movimentos patrimoniais
+- amostra de movimentos de materiais
 
-Nome do arquivo:
+Arquivo gerado:
 
 - impacto_periodo_DATAINICIO_DATAFIM.pdf
 
 ## WhatsApp
 
-O resumo WhatsApp contem:
+O resumo WhatsApp inclui:
 
 - periodo
-- fechamento/status/protocolo
-- se bloqueia periodo
-- total de patrimonio
-- patrimonio antes/depois
-- total de materiais
-- materiais antes/depois
-- observacao tecnica sobre tentativas bloqueadas
+- status do fechamento
+- periodo bloqueado ou nao
+- protocolo
+- total de movimentos patrimoniais
+- total de movimentos materiais
+- quantidade de materiais
+- movimentos pos-fechamento
+- conclusao
 
 ## Cache atualizado
 
 index-clean.html agora carrega:
 
-- clean/fechamento.js?v=3
-- clean/fechamento_impacto.js?v=1
-
-## Validacao executada
-
-Foi validado o ultimo fechamento real salvo.
-
-Resultado:
-
-- periodo_inicio = 2026-06-07
-- periodo_fim = 2026-06-07
-- status_fechamento = Cancelado
-- bloqueado = false
-- movimentos_total = 31
-- movimentos_antes = 31
-- movimentos_apos = 0
-- materiais_total = 6
-- materiais_antes = 6
-- materiais_apos = 0
-
-Interpretacao:
-
-Como o fechamento esta Cancelado, ele nao bloqueia o periodo.
-Mesmo assim, o relatorio consegue mostrar tudo que compoe aquele periodo.
+- clean/impacto_fechamento.js?v=1
 
 ## Roteiro de teste
 
@@ -171,16 +227,16 @@ Abrir:
 Testar:
 
 1. Fazer login.
-2. Abrir Fechamento.
-3. Ir ao card Relatorio de impacto do periodo fechado.
-4. Selecionar um fechamento salvo.
-5. Clicar Gerar impacto.
-6. Conferir KPIs de patrimonio e materiais.
-7. Conferir tabela de movimentos patrimoniais.
-8. Conferir tabela de materiais.
-9. Baixar PDF jsPDF.
-10. Copiar resumo WhatsApp.
-11. Testar tambem com periodo manual sem selecionar fechamento.
+2. Abrir Impacto fechamento.
+3. Selecionar um fechamento no campo Fechamento.
+4. Conferir se as datas sao preenchidas automaticamente.
+5. Clicar Gerar relatorio.
+6. Conferir KPIs.
+7. Conferir Controle do periodo.
+8. Conferir tabelas por tipo e por dia.
+9. Conferir movimentos patrimoniais e materiais.
+10. Clicar Copiar resumo WhatsApp.
+11. Clicar Baixar PDF jsPDF.
 
 ## Status
 
@@ -188,16 +244,8 @@ Testar:
 
 ## Proxima etapa recomendada
 
-5X - Controle de permissao por perfil nas operacoes criticas.
+5X - Consolidacao final do modulo financeiro/operacional do estoque.
 
 Objetivo:
 
-Separar o que cada perfil pode fazer:
-
-- admin
-- gestor
-- suporte
-- tecnico
-- somente leitura
-
-Bloquear no banco e no frontend operacoes como baixa, cancelamento de fechamento, correcao de auditoria e cadastro estrutural.
+Unificar relatorios gerenciais, fechamento e impacto em uma area unica de analise operacional com visao executiva e documentos PDF padronizados.
