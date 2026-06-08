@@ -1,6 +1,6 @@
 import { call } from './api.js?v=3';
 
-const S = { data: null };
+const S = { data: null, auditoria: null };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const num = (v) => Number(v || 0).toLocaleString('pt-BR');
@@ -13,8 +13,16 @@ function msg(text, type=''){
   el.textContent = text;
   el.className = 'msg show ' + type;
 }
+function injectCss(){
+  if($('dashAuditCss')) return;
+  const s = document.createElement('style');
+  s.id = 'dashAuditCss';
+  s.textContent = `.dash-audit-card{border:1px solid #e5e7eb}.dash-audit-card.ok{border-color:#16a34a}.dash-audit-card.warn{border-color:#eab308}.dash-audit-card.bad{border-color:#dc2626}.dash-audit-status{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.dash-audit-kpi{border:1px solid #e5e7eb;border-radius:14px;padding:10px;background:#fff}.dash-audit-kpi small{display:block;color:#64748b;font-weight:800}.dash-audit-kpi b{font-size:20px}.dash-audit-summary{margin-top:10px}.dash-audit-summary .item{margin-bottom:8px}.dash-audit-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}@media(max-width:700px){.dash-audit-status{grid-template-columns:repeat(2,1fr)}.dash-audit-actions button{width:100%}}`;
+  document.head.appendChild(s);
+}
 
 function inject(){
+  injectCss();
   const sec = $('page-dashboard');
   if(!sec) return;
   sec.innerHTML = `
@@ -22,7 +30,7 @@ function inject(){
       <div class="table-head">
         <div>
           <h2>Dashboard operacional</h2>
-          <p>Visão executiva do estoque, movimentações, alertas e itens críticos.</p>
+          <p>Visão executiva do estoque, movimentações, alertas, itens críticos e auditoria preventiva.</p>
         </div>
         <button id="dashCleanReload" class="secondary">Atualizar dashboard</button>
       </div>
@@ -36,6 +44,22 @@ function inject(){
       <div class="kpi"><small>Manutenção</small><b id="dashKManutencao">0</b></div>
       <div class="kpi"><small>Aguardando baixa</small><b id="dashKBaixa">0</b></div>
       <div class="kpi"><small>Baixados/inativos</small><b id="dashKInativos">0</b></div>
+    </div>
+
+    <div class="card dash-audit-card" id="dashAuditoriaCard">
+      <div class="table-head">
+        <div>
+          <h2>Auditoria preventiva</h2>
+          <p id="dashAuditoriaTexto">Verificação automática de divergências do estoque.</p>
+        </div>
+        <span id="dashAuditoriaBadge" class="badge">Carregando</span>
+      </div>
+      <div class="dash-audit-status" id="dashAuditoriaKpis"></div>
+      <div class="dash-audit-summary" id="dashAuditoriaResumo"></div>
+      <div class="dash-audit-actions">
+        <button id="dashAbrirAuditoria" class="secondary" type="button">Abrir Auditoria</button>
+        <button id="dashAtualizarAuditoria" class="secondary" type="button">Revalidar agora</button>
+      </div>
     </div>
 
     <div class="grid two">
@@ -71,13 +95,25 @@ function inject(){
     </div>`;
 
   $('dashCleanReload').onclick = () => load().catch(e => msg(e.message, 'bad'));
+  $('dashAtualizarAuditoria').onclick = () => loadAuditoria().then(renderAuditoria).catch(e => renderAuditoriaErro(e));
+  $('dashAbrirAuditoria').onclick = () => document.getElementById('navAuditoriaClean')?.click();
 }
 
 async function load(){
-  msg('Carregando dashboard via RPC...', 'warn');
-  S.data = await call('rpc_dashboard_operacional', {}) || {};
+  msg('Carregando dashboard e auditoria preventiva...', 'warn');
+  const dash = await call('rpc_dashboard_operacional', {}) || {};
+  S.data = dash;
+  try{
+    await loadAuditoria();
+  }catch(e){
+    S.auditoria = { erro: e.message || String(e) };
+  }
   render();
   msg('Dashboard atualizado.', 'ok');
+}
+async function loadAuditoria(){
+  S.auditoria = await call('rpc_auditoria_divergencias_5v1', { p_gravidade:null, p_categoria:null }) || {};
+  return S.auditoria;
 }
 
 function render(){
@@ -91,13 +127,57 @@ function render(){
   $('dashKInativos').textContent = num(k.baixados_inativos);
   $('dashGerado').textContent = d.generated_at ? `Atualizado ${dt(d.generated_at)}` : '-';
 
+  renderAuditoria();
   renderStatus(d.por_status || []);
   renderLocais(d.por_local || []);
   renderAlertas(d.alertas || {});
   renderAtalhos();
   renderRecentes(d.recentes || {});
 }
-
+function auditKpi(label, value, cls=''){
+  return `<div class="dash-audit-kpi ${cls}"><small>${esc(label)}</small><b>${esc(num(value))}</b></div>`;
+}
+function renderAuditoria(){
+  const card = $('dashAuditoriaCard');
+  if(!card) return;
+  const a = S.auditoria || {};
+  if(a.erro){ return renderAuditoriaErro(new Error(a.erro)); }
+  const r = a.resumo || {};
+  const total = Number(r.total || 0);
+  const crit = Number(r.criticas || 0);
+  const altas = Number(r.altas || 0);
+  const medias = Number(r.medias || 0);
+  const baixas = Number(r.baixas || 0);
+  const cls = crit || altas ? 'bad' : total ? 'warn' : 'ok';
+  card.className = `card dash-audit-card ${cls}`;
+  $('dashAuditoriaBadge').textContent = total ? `${num(total)} divergência(s)` : 'Auditoria limpa';
+  $('dashAuditoriaTexto').textContent = total
+    ? 'Existem divergências que exigem análise na tela Auditoria.'
+    : 'Nenhuma divergência ativa encontrada no estoque.';
+  $('dashAuditoriaKpis').innerHTML = [
+    auditKpi('Total', total),
+    auditKpi('Críticas', crit),
+    auditKpi('Altas', altas),
+    auditKpi('Médias', medias),
+    auditKpi('Baixas', baixas)
+  ].join('');
+  const cats = a.por_categoria || [];
+  if(total){
+    $('dashAuditoriaResumo').innerHTML = cats.slice(0,5).map(c => `
+      <div class="item"><div><b>${esc(c.categoria)}</b><br><small>Categoria com divergência ativa</small></div><span class="badge">${num(c.total)}</span></div>`).join('') || '<div class="msg show warn">Divergências sem categoria retornada.</div>';
+  }else{
+    $('dashAuditoriaResumo').innerHTML = '<div class="msg show ok">Sistema sem divergências de auditoria no momento.</div>';
+  }
+}
+function renderAuditoriaErro(e){
+  const card = $('dashAuditoriaCard');
+  if(!card) return;
+  card.className = 'card dash-audit-card warn';
+  $('dashAuditoriaBadge').textContent = 'Falha ao validar';
+  $('dashAuditoriaTexto').textContent = 'Não foi possível consultar a auditoria preventiva.';
+  $('dashAuditoriaKpis').innerHTML = auditKpi('Status', 'Erro');
+  $('dashAuditoriaResumo').innerHTML = `<div class="msg show bad">${esc(e.message || String(e))}</div>`;
+}
 function renderStatus(rows){
   $('dashStatus').innerHTML = rows.map(r => `
     <div class="item">
@@ -130,7 +210,8 @@ function renderAtalhos(){
     ['Devolução','navDevolucaoClean'],
     ['Manutenção','navManutencaoClean'],
     ['Baixa','navBaixaClean'],
-    ['Histórico','navHistoricoClean']
+    ['Histórico','navHistoricoClean'],
+    ['Auditoria','navAuditoriaClean']
   ];
   $('dashAtalhos').innerHTML = links.map(([label,id]) => `<button class="secondary" type="button" data-dash-nav="${id}">${label}</button>`).join('');
   document.querySelectorAll('[data-dash-nav]').forEach(btn => {
