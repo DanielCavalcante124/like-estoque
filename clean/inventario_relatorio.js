@@ -26,6 +26,96 @@ function renderFaltantes(){const arr=S.rel?.faltantes||[];$('invRelFaltantes').i
 async function corrigir(bipId){try{const motivo=prompt('Motivo da correção de local:');if(!motivo)return;if(motivo.trim().length<8)throw new Error('Motivo muito curto.');await call('rpc_corrigir_divergencia_inventario_7a5_2',{p_bip_id:bipId,p_motivo:motivo.trim()});await loadRel(S.ativo.id);msg('Divergência corrigida com movimento e auditoria.','ok');}catch(e){msg(e.message||String(e),'bad');}}
 function rows(){const inv=S.ativo||{};const b=(S.rel?.bips||[]).map(x=>({tipo:'BIP',codigo:x.equipamento_codigo||x.codigo_bipado,resultado:lab(x.resultado),local_sistema:x.local_sistema||'',local_alvo:x.local_alvo||'',mac:x.mac||'',serial:x.serial||''}));const f=(S.rel?.faltantes||[]).map(x=>({tipo:'FALTANTE',codigo:x.codigo||'',resultado:'Faltante',local_sistema:x.local||'',local_alvo:inv.local_alvo||'',mac:x.mac||'',serial:x.serial||''}));return b.concat(f);}
 function csv(){if(!S.rel){msg('Selecione um inventário.','bad');return;}const head=['tipo','codigo','resultado','local_sistema','local_alvo','mac','serial'];const txt=[head.join(';')].concat(rows().map(r=>head.map(h=>`"${String(r[h]??'').replace(/"/g,'""')}"`).join(';'))).join('\n');const blob=new Blob([txt],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`inventario_${S.ativo.codigo}.csv`;a.click();URL.revokeObjectURL(a.href);}
-function pdf(){if(!S.rel){msg('Selecione um inventário.','bad');return;}const js=window.jspdf?.jsPDF;if(!js){msg('jsPDF não carregado.','bad');return;}const doc=new js({orientation:'landscape'});const r=S.rel.resumo||{},inv=S.ativo;let y=12;doc.setFontSize(14);doc.text('Relatório de Inventário - LIKE Estoque',12,y);y+=8;doc.setFontSize(9);doc.text(`Inventário: ${inv.codigo} | Local: ${inv.local_alvo} | Status: ${inv.status}`,12,y);y+=6;doc.text(`Bipados: ${r.total_bipado||0} | OK: ${r.ok||0} | Divergentes: ${r.divergente||0} | Não encontrados: ${r.nao_encontrado||0} | Inativos: ${r.inativo||0} | Faltantes: ${r.faltantes||0}`,12,y);y+=8;doc.setFontSize(8);rows().slice(0,55).forEach(row=>{doc.text(`${row.tipo} | ${row.codigo} | ${row.resultado} | sistema: ${row.local_sistema} | inventário: ${row.local_alvo}`,12,y);y+=5;if(y>195){doc.addPage();y=12;}});doc.save(`inventario_${inv.codigo}.pdf`);}
+function pdf(){
+  if(!S.rel){msg('Selecione um inventário.','bad');return;}
+  const js=window.jspdf?.jsPDF;
+  if(!js){msg('jsPDF não carregado.','bad');return;}
+
+  const doc=new js({orientation:'landscape',unit:'mm',format:'a4'});
+  const inv=S.ativo||{};
+  const r=S.rel.resumo||{};
+  const W=297,H=210, M=10;
+  let y=10;
+
+  const clean=v=>String(v??'-').replace(/\s+/g,' ').trim();
+  const pageBreak=(need=12)=>{ if(y+need>190){ footer(); doc.addPage(); y=12; header(false); } };
+  const header=(first=true)=>{
+    doc.setFillColor(15,76,129); doc.rect(0,0,W,16,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont(undefined,'bold');
+    doc.text('LIKE Estoque - Relatório de Inventário',M,10);
+    doc.setFontSize(8); doc.setFont(undefined,'normal');
+    doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')}`,W-M,10,{align:'right'});
+    doc.setTextColor(20,30,45);
+    y=first?24:22;
+  };
+  const footer=()=>{
+    const p=doc.internal.getNumberOfPages();
+    doc.setFontSize(7); doc.setTextColor(100,116,139);
+    doc.text('Documento gerado pelo LIKE Estoque. Inventário não altera estoque automaticamente; correções exigem auditoria.',M,202);
+    doc.text(`Página ${p}`,W-M,202,{align:'right'});
+    doc.setTextColor(20,30,45);
+  };
+  const section=t=>{ pageBreak(12); doc.setFillColor(241,245,249); doc.roundedRect(M,y, W-(M*2),8,1.5,1.5,'F'); doc.setFontSize(10); doc.setFont(undefined,'bold'); doc.setTextColor(15,76,129); doc.text(t,M+3,y+5.5); doc.setTextColor(20,30,45); y+=12; };
+  const line=(l,v,x=M)=>{ doc.setFontSize(8); doc.setFont(undefined,'bold'); doc.text(`${l}:`,x,y); doc.setFont(undefined,'normal'); doc.text(clean(v),x+28,y); };
+  const box=(l,v,x,w)=>{ doc.setDrawColor(226,232,240); doc.setFillColor(248,250,252); doc.roundedRect(x,y,w,18,2,2,'FD'); doc.setFontSize(7); doc.setFont(undefined,'bold'); doc.setTextColor(100,116,139); doc.text(l,x+3,y+6); doc.setFontSize(13); doc.setTextColor(15,23,42); doc.text(String(v??0),x+3,y+14); doc.setTextColor(20,30,45); };
+  const table=(title,data)=>{
+    section(title);
+    if(!data.length){ doc.setFontSize(8); doc.setTextColor(100,116,139); doc.text('Nenhum registro nesta seção.',M,y); doc.setTextColor(20,30,45); y+=7; return; }
+    const cols=[['Tipo',22],['Código',34],['Resultado',30],['Local sistema',46],['Local inventário',46],['MAC',42],['Serial',42]];
+    const drawHead=()=>{ pageBreak(12); let x=M; doc.setFillColor(15,76,129); doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont(undefined,'bold'); cols.forEach(c=>{doc.rect(x,y,c[1],7,'F'); doc.text(c[0],x+2,y+4.8); x+=c[1];}); doc.setTextColor(20,30,45); y+=7; };
+    drawHead();
+    data.forEach(row=>{
+      const vals=[row.tipo,row.codigo,row.resultado,row.local_sistema,row.local_alvo,row.mac,row.serial].map(clean);
+      const heights=vals.map((v,i)=>doc.splitTextToSize(v,cols[i][1]-4).length*4+4);
+      const h=Math.max(8,...heights);
+      if(y+h>190){ footer(); doc.addPage(); header(false); drawHead(); }
+      let x=M; doc.setDrawColor(226,232,240); doc.setFontSize(7); doc.setFont(undefined,'normal');
+      vals.forEach((v,i)=>{ doc.rect(x,y,cols[i][1],h); doc.text(doc.splitTextToSize(v,cols[i][1]-4),x+2,y+4); x+=cols[i][1]; });
+      y+=h;
+    });
+    y+=4;
+  };
+
+  const allRows=rows();
+  const divergentes=allRows.filter(x=>x.resultado==='Divergente');
+  const naoEncontrados=allRows.filter(x=>x.resultado==='Não encontrado');
+  const inativos=allRows.filter(x=>x.resultado==='Inativo');
+  const faltantes=allRows.filter(x=>x.tipo==='FALTANTE');
+  const ok=allRows.filter(x=>x.resultado==='OK');
+
+  header(true);
+  doc.setFontSize(16); doc.setFont(undefined,'bold'); doc.setTextColor(15,76,129); doc.text('Relatório de Inventário',M,y); y+=8;
+  doc.setTextColor(20,30,45); doc.setFontSize(9); doc.setFont(undefined,'normal');
+  line('Inventário',inv.codigo||'-'); y+=6;
+  line('Título',inv.titulo||'-'); y+=6;
+  line('Local',inv.local_alvo||'-'); line('Status',inv.status||'-',160); y+=6;
+  line('Aberto em',dt(inv.aberto_em)); line('Finalizado em',dt(inv.finalizado_em),160); y+=9;
+
+  box('BIPADOS',r.total_bipado||0,M,42); box('OK',r.ok||0,M+45,38); box('DIVERGENTES',r.divergente||0,M+86,44); box('NÃO ENCONTRADOS',r.nao_encontrado||0,M+133,50); box('INATIVOS',r.inativo||0,M+186,40); box('FALTANTES',r.faltantes||0,M+229,42); y+=24;
+
+  section('Resumo executivo');
+  doc.setFontSize(8); doc.setFont(undefined,'normal');
+  const resumoTxt=[
+    `Foram bipados ${r.total_bipado||0} itens para o local ${clean(inv.local_alvo)}.`,
+    `Divergências de local: ${r.divergente||0}. Faltantes no local esperado: ${r.faltantes||0}. Não encontrados no cadastro: ${r.nao_encontrado||0}. Inativos/baixados encontrados: ${r.inativo||0}.`,
+    'Itens divergentes devem ser corrigidos apenas após conferência física. Itens não encontrados, faltantes e inativos não são corrigidos automaticamente.'
+  ].join(' ');
+  doc.text(doc.splitTextToSize(resumoTxt,W-(M*2)),M,y); y+=18;
+
+  table('1. Divergências de local',divergentes);
+  table('2. Equipamentos faltantes no local esperado',faltantes);
+  table('3. Bips não encontrados no cadastro',naoEncontrados);
+  table('4. Equipamentos inativos/baixados bipados',inativos);
+  table('5. Conferidos sem divergência',ok.slice(0,120));
+
+  pageBreak(32); section('Assinaturas e conferência');
+  doc.setFontSize(8); doc.text('Responsável pelo inventário',M,y+14); doc.line(M,y+10,95,y+10);
+  doc.text('Gestor / auditoria',120,y+14); doc.line(120,y+10,205,y+10);
+  doc.text('Data',230,y+14); doc.line(230,y+10,280,y+10);
+  footer();
+  const pages=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pages;i++){ doc.setPage(i); doc.setFontSize(7); doc.setTextColor(100,116,139); doc.text(`Página ${i} de ${pages}`,W-M,206,{align:'right'}); }
+  doc.save(`inventario_${inv.codigo||'relatorio'}.pdf`);
+}
 function boot(){document.addEventListener('like:session',ev=>{if(ev.detail?.user)ensureAccess();else removeUi();});setTimeout(ensureAccess,1900);setTimeout(ensureAccess,4400);}
 boot();
