@@ -1,9 +1,24 @@
-import { APP_ENV, IS_STAGING, assertRpcAllowed } from './env.js?v=1';
+import { APP_ENV, IS_STAGING, canRunRpc } from './env.js?v=1';
 
 let sb = null;
 
 const DEFAULT_URL = 'https://yuyeyawigbbjtzghkbbr.supabase.co';
 const DEFAULT_KEY = ['sb_publishable','_9DyOYVHN6035kbUjypbDkA_4zYHk_pI'].join('');
+
+function dbTable(name){
+  if(!IS_STAGING) return name;
+  const map = {
+    equipamentos: 'teste_equipamentos',
+    movimentos: 'teste_movimentos'
+  };
+  return map[name] || name;
+}
+
+function dbRpc(name){
+  if(!IS_STAGING) return name;
+  if(canRunRpc(name)) return name;
+  return 'teste_' + name;
+}
 
 export function cfg(){
   try {
@@ -47,13 +62,8 @@ export async function signIn(email, password){
 
 export async function signOut(){ await db().auth.signOut(); }
 export async function session(){ const r = await db().auth.getSession(); if(r.error) throw r.error; return r.data.session; }
-export async function table(name, order='created_at', asc=false){ const r = await db().from(name).select('*').order(order,{ascending:asc}); if(r.error) throw r.error; return r.data || []; }
-export async function call(name, params){
-  if(IS_STAGING) assertRpcAllowed(name);
-  const r = await db().rpc(name, params || {});
-  if(r.error) throw r.error;
-  return r.data;
-}
+export async function table(name, order='created_at', asc=false){ const r = await db().from(dbTable(name)).select('*').order(order,{ascending:asc}); if(r.error) throw r.error; return r.data || []; }
+export async function call(name, params){ const r = await db().rpc(dbRpc(name), params || {}); if(r.error) throw r.error; return r.data; }
 export function first(data){ return Array.isArray(data) ? data[0] : data; }
 export function appEnvironment(){ return APP_ENV; }
 export function isStaging(){ return IS_STAGING; }
