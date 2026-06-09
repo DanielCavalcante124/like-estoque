@@ -1,9 +1,9 @@
 (function(){
   const VERSION = {
     app: 'LIKE Estoque',
-    version: '1.1.0',
+    version: '1.1.1',
     releaseDate: '2026-06-09',
-    codename: 'entrada-reestruturada'
+    codename: 'sem-patches'
   };
 
   function ensureBadge(){
