@@ -46,14 +46,3 @@
   document.addEventListener('click',handle,true);
   window.desativarModeloFixAtivo=true;
 })();
-
-(function(){
-  if(window.likeEntradaFluxoSeguroLoader)return;
-  window.likeEntradaFluxoSeguroLoader=true;
-  ['clean/entrada_fluxo_seguro.js?v=2','clean/entrada_normal_confirmacao.js?v=1'].forEach(function(src){
-    var s=document.createElement('script');
-    s.src=src;
-    s.defer=true;
-    document.body.appendChild(s);
-  });
-})();
