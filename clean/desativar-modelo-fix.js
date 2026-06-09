@@ -46,3 +46,12 @@
   document.addEventListener('click',handle,true);
   window.desativarModeloFixAtivo=true;
 })();
+
+(function(){
+  if(window.likeEntradaFluxoSeguroLoader)return;
+  window.likeEntradaFluxoSeguroLoader=true;
+  var s=document.createElement('script');
+  s.src='clean/entrada_fluxo_seguro.js?v=1';
+  s.defer=true;
+  document.body.appendChild(s);
+})();
