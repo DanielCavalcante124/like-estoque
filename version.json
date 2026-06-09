@@ -1,11 +1,12 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "release_date": "2026-06-09",
   "environment": "production",
-  "codename": "sem-patches",
-  "summary": "Remoção definitiva de arquivos de contorno, incorporação da desativação no módulo principal e atualização de cache.",
+  "codename": "ambientes-free",
+  "summary": "Documentação oficial da estratégia de ambiente de teste e produção usando um único projeto Supabase Free.",
   "modules": {
+    "docs_ambientes_free": "1",
     "main": "7",
     "entrada": "5",
     "entrada_lote": "5",
