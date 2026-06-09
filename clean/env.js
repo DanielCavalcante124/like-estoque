@@ -1,9 +1,20 @@
+const params = new URLSearchParams(location.search);
+const urlEnv = params.get('env') || '';
+const sessionEnv = sessionStorage.getItem('LIKE_ESTOQUE_ENV') || '';
 const forcedEnv = window.LIKE_ESTOQUE_ENV || '';
 const pathEnv = location.pathname.toLowerCase().includes('teste') ? 'staging' : '';
 
-export const APP_ENV = forcedEnv || pathEnv || 'production';
+const rawEnv = forcedEnv || urlEnv || sessionEnv || pathEnv || 'production';
+
+export const APP_ENV = rawEnv === 'staging' ? 'staging' : 'production';
 export const IS_STAGING = APP_ENV === 'staging';
 export const IS_PRODUCTION = APP_ENV === 'production';
+
+if(IS_STAGING){
+  sessionStorage.setItem('LIKE_ESTOQUE_ENV','staging');
+}else{
+  sessionStorage.removeItem('LIKE_ESTOQUE_ENV');
+}
 
 export function envLabel(){
   return IS_STAGING ? 'AMBIENTE DE TESTE' : 'PRODUÇÃO';
