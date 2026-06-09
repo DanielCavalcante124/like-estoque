@@ -1,15 +1,18 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "release_date": "2026-06-09",
   "environment": "production",
-  "codename": "ambientes-free",
-  "summary": "Documentação oficial da estratégia de ambiente de teste e produção usando um único projeto Supabase Free.",
+  "codename": "camada-env",
+  "summary": "Criada camada oficial de ambiente, página de teste e bloqueio de RPCs de gravação no modo staging.",
+  "staging_version": "1.2.0-beta.1",
   "modules": {
-    "docs_ambientes_free": "1",
+    "env": "1",
+    "api": "4",
+    "index_teste": "1",
+    "version": "3",
     "main": "7",
     "entrada": "5",
-    "entrada_lote": "5",
-    "version": "2"
+    "entrada_lote": "5"
   }
 }
