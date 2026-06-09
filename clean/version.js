@@ -4,9 +4,9 @@
 
   const VERSION = {
     app: 'LIKE Estoque',
-    version: isStaging ? '1.2.0-beta.1' : '1.1.3',
+    version: isStaging ? '1.2.0-beta.2' : '1.1.4',
     releaseDate: '2026-06-09',
-    codename: isStaging ? 'homologacao-free' : 'camada-env'
+    codename: isStaging ? 'homologacao-com-banco-teste' : 'front-validado'
   };
 
   function ensureBadge(){
