@@ -1,6 +1,6 @@
 import { cfg, save, init, signIn, signOut, session, table, call } from './api.js?v=3';
 
-const S = { modelos: [], tecnicos: [], locais: [], tipos: [], marcas: [], user: null };
+const S = { modelos: [], tecnicos: [], locais: [], tipos: [], marcas: [], user: null, desativacao: null };
 const $ = (id) => document.getElementById(id);
 const ativo = (r) => r && r.ativo !== false;
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -32,6 +32,7 @@ function ensureCadastroUi(){
   if(!$('modeloControle')) $('modeloCategoria').insertAdjacentHTML('afterend','<select id="modeloControle"><option value="Unitário">Patrimônio unitário</option><option value="Quantidade">Material / quantidade</option></select><label class="checkline"><input id="modeloExigeMacSn" type="checkbox" checked> Exigir MAC/SN na entrada</label>');
   const pageCad=$('page-cadastros');
   if(pageCad && !$('taxonomiaCard')) pageCad.insertAdjacentHTML('afterbegin',`<div id="taxonomiaCard" class="grid two"><form id="formTipoProduto" class="card form-card"><h2>Tipo de produto</h2><input id="novoTipoProduto" placeholder="Ex: ONT, Roteador, Câmera"><button class="primary" type="submit">Cadastrar tipo</button><div id="tipoProdutoMsg" class="msg"></div></form><form id="formMarcaProduto" class="card form-card"><h2>Marca</h2><input id="novaMarcaProduto" placeholder="Ex: Huawei, Intelbras"><button class="primary" type="submit">Cadastrar marca</button><div id="marcaProdutoMsg" class="msg"></div></form></div>`);
+  if(pageCad && !$('desativacaoCard')) pageCad.insertAdjacentHTML('afterbegin',`<div id="desativacaoCard" class="card" style="display:none"><h2 id="desativacaoTitulo">Desativar cadastro</h2><p id="desativacaoTexto">Confira a ação antes de continuar.</p><textarea id="desativacaoMotivo" rows="3" placeholder="Informe o motivo da desativação" style="width:100%;resize:vertical"></textarea><div class="actions"><button id="desativacaoConfirmar" class="danger" type="button">Confirmar desativação</button><button id="desativacaoCancelar" class="secondary" type="button">Cancelar</button></div><div id="desativacaoMsg" class="msg"></div></div>`);
   const head=document.querySelector('#tbodyModelos')?.closest('table')?.querySelector('thead tr');
   if(head) head.innerHTML='<th>Tipo</th><th>Marca</th><th>Modelo</th><th>Categoria</th><th>Controle</th><th>MAC/SN</th><th>Custo</th><th>Mínimo</th><th>Ideal</th><th>Ações</th>';
 }
@@ -75,9 +76,27 @@ async function salvarTipo(e){ e.preventDefault(); try{auth(); const nome=$('novo
 async function salvarMarca(e){ e.preventDefault(); try{auth(); const nome=$('novaMarcaProduto').value.trim(); if(!nome) throw new Error('Informe a marca.'); await call('rpc_criar_produto_marca',{p_nome:nome}); $('novaMarcaProduto').value=''; await loadAll(); msg('marcaProdutoMsg','Marca cadastrada.','ok');}catch(err){msg('marcaProdutoMsg',err.message,'bad')} }
 async function salvarTecnico(e){ e.preventDefault(); try{auth(); const id=$('tecnicoId').value, nome=$('tecnicoNome').value.trim(); if(!nome) throw new Error('Informe o nome do técnico.'); if(id) await call('rpc_editar_tecnico',{p_tecnico_id:id,p_nome:nome}); else await call('rpc_criar_tecnico',{p_nome:nome}); clearTecnico(); await loadAll(); msg('tecnicoMsg','Técnico salvo com segurança.','ok');}catch(err){msg('tecnicoMsg',err.message,'bad')} }
 async function salvarLocal(e){ e.preventDefault(); try{auth(); const id=$('localId').value, nome=$('localNome').value.trim(), tipo=$('localTipo').value; if(!nome) throw new Error('Informe o nome do local.'); if(id) await call('rpc_editar_local',{p_local_id:id,p_nome:nome,p_tipo:tipo}); else await call('rpc_criar_local',{p_nome:nome,p_tipo:tipo}); clearLocal(); await loadAll(); msg('localMsg','Local salvo com segurança.','ok');}catch(err){msg('localMsg',err.message,'bad')} }
-async function desativarModelo(id){const m=S.modelos.find(x=>x.id===id); if(!m) return; const motivo=prompt(`Motivo para desativar ${m.tipo} ${m.marca} ${m.modelo}:`,'Desativado pelo administrador'); if(motivo===null)return; await call('rpc_desativar_modelo',{p_modelo_id:id,p_motivo:motivo.trim()||'Desativado pelo administrador'}); await loadAll();}
-async function desativarTecnico(id){const t=S.tecnicos.find(x=>x.id===id); if(!t) return; const motivo=prompt(`Motivo para desativar ${t.nome}:`,'Desativado pelo administrador'); if(motivo===null)return; await call('rpc_desativar_tecnico',{p_tecnico_id:id,p_motivo:motivo.trim()||'Desativado pelo administrador'}); await loadAll();}
-async function desativarLocal(id){const l=S.locais.find(x=>x.id===id); if(!l) return; const motivo=prompt(`Motivo para desativar ${l.nome}:`,'Desativado pelo administrador'); if(motivo===null)return; await call('rpc_desativar_local',{p_local_id:id,p_motivo:motivo.trim()||'Desativado pelo administrador'}); await loadAll();}
+function abrirDesativacao(tipo,id){
+  let nome='',rpc='',param='';
+  if(tipo==='modelo'){const m=S.modelos.find(x=>x.id===id); if(!m)return; nome=`${m.tipo} ${m.marca} ${m.modelo}`; rpc='rpc_desativar_modelo'; param='p_modelo_id';}
+  if(tipo==='tecnico'){const t=S.tecnicos.find(x=>x.id===id); if(!t)return; nome=t.nome; rpc='rpc_desativar_tecnico'; param='p_tecnico_id';}
+  if(tipo==='local'){const l=S.locais.find(x=>x.id===id); if(!l)return; nome=l.nome; rpc='rpc_desativar_local'; param='p_local_id';}
+  S.desativacao={tipo,id,nome,rpc,param};
+  ensureCadastroUi(); page('cadastros');
+  setText('desativacaoTitulo',`Desativar ${tipo}`);
+  setText('desativacaoTexto',`Você está prestes a desativar: ${nome}. Esta ação preserva histórico e bloqueia novos usos.`);
+  if($('desativacaoMotivo')) $('desativacaoMotivo').value='';
+  clearMsg('desativacaoMsg');
+  const card=$('desativacaoCard'); if(card){card.style.display='block'; card.scrollIntoView({behavior:'smooth',block:'center'});}
+}
+function fecharDesativacao(){S.desativacao=null; const card=$('desativacaoCard'); if(card) card.style.display='none'; clearMsg('desativacaoMsg');}
+async function confirmarDesativacao(){
+  try{auth(); if(!S.desativacao) throw new Error('Nenhuma desativação selecionada.'); const motivo=($('desativacaoMotivo')?.value||'').trim(); if(motivo.length<6) throw new Error('Informe um motivo com pelo menos 6 caracteres.'); const p={}; p[S.desativacao.param]=S.desativacao.id; p.p_motivo=motivo; await call(S.desativacao.rpc,p); const nome=S.desativacao.nome; fecharDesativacao(); await loadAll(); msg('modeloMsg',`Cadastro desativado com sucesso: ${nome}. Histórico preservado.`,'ok');}
+  catch(err){msg('desativacaoMsg',err.message,'bad')}
+}
+async function desativarModelo(id){abrirDesativacao('modelo',id)}
+async function desativarTecnico(id){abrirDesativacao('tecnico',id)}
+async function desativarLocal(id){abrirDesativacao('local',id)}
 function editModelo(id){const m=S.modelos.find(x=>x.id===id); if(!m)return; $('modeloId').value=m.id; $('modeloTipo').value=m.tipo||''; $('modeloMarca').value=m.marca||''; $('modeloNome').value=m.modelo||''; $('modeloCusto').value=m.custo_padrao||m.custo||0; $('modeloMin').value=m.estoque_minimo||m.minimo||0; $('modeloIdeal').value=m.estoque_ideal||m.ideal||0; $('modeloCategoria').value=m.categoria_estoque||'Patrimônio'; if($('modeloControle'))$('modeloControle').value=m.controle||'Unitário'; if($('modeloExigeMacSn'))$('modeloExigeMacSn').checked=m.exige_mac_sn!==false; page('cadastros');}
 function editTecnico(id){const t=S.tecnicos.find(x=>x.id===id); if(t){$('tecnicoId').value=t.id; $('tecnicoNome').value=t.nome||''; page('cadastros');}}
 function editLocal(id){const l=S.locais.find(x=>x.id===id); if(l){$('localId').value=l.id; $('localNome').value=l.nome||''; $('localTipo').value=l.tipo||'Outro'; page('cadastros');}}
@@ -85,11 +104,12 @@ function bind(){
   ensureCadastroUi();
   document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>page(b.dataset.page));
   const loginBtn=$('btnLogin'); if(loginBtn) loginBtn.onclick=async()=>{try{const email=$('loginEmail').value.trim(), pass=$('loginPass').value; save({email}); init(); const data=await signIn(email,pass); setSession(data.user); await loadAll(); msg('loginMsg','Login realizado.','ok');}catch(e){msg('loginMsg',e.message,'bad')}};
-  if($('btnLogout')) $('btnLogout').onclick=async()=>{try{await signOut()}catch(e){} setSession(null)}; if($('btnReload')) $('btnReload').onclick=()=>loadAll().catch(e=>alert(e.message));
+  if($('btnLogout')) $('btnLogout').onclick=async()=>{try{await signOut()}catch(e){} setSession(null)}; if($('btnReload')) $('btnReload').onclick=()=>loadAll().catch(e=>msg('loginMsg',e.message,'bad'));
   if($('formModelo')) $('formModelo').onsubmit=salvarModelo; if($('formTipoProduto')) $('formTipoProduto').onsubmit=salvarTipo; if($('formMarcaProduto')) $('formMarcaProduto').onsubmit=salvarMarca;
   if($('formTecnico')) $('formTecnico').onsubmit=salvarTecnico; if($('formLocal')) $('formLocal').onsubmit=salvarLocal; if($('btnModeloClear')) $('btnModeloClear').onclick=clearModelo; if($('btnTecnicoClear')) $('btnTecnicoClear').onclick=clearTecnico; if($('btnLocalClear')) $('btnLocalClear').onclick=clearLocal;
+  if($('desativacaoConfirmar')) $('desativacaoConfirmar').onclick=confirmarDesativacao; if($('desativacaoCancelar')) $('desativacaoCancelar').onclick=fecharDesativacao;
   ['filtroModelos','filtroTecnicos','filtroLocais'].forEach(id=>{if($(id))$(id).oninput=render});
-  document.body.addEventListener('click',async ev=>{const b=ev.target.closest('button'); if(!b)return; try{if(b.dataset.editModelo)editModelo(b.dataset.editModelo); if(b.dataset.editTecnico)editTecnico(b.dataset.editTecnico); if(b.dataset.editLocal)editLocal(b.dataset.editLocal); if(b.dataset.desativarModelo)await desativarModelo(b.dataset.desativarModelo); if(b.dataset.desativarTecnico)await desativarTecnico(b.dataset.desativarTecnico); if(b.dataset.desativarLocal)await desativarLocal(b.dataset.desativarLocal);}catch(e){alert(e.message)}});
+  document.body.addEventListener('click',async ev=>{const b=ev.target.closest('button'); if(!b)return; try{if(b.dataset.editModelo)editModelo(b.dataset.editModelo); if(b.dataset.editTecnico)editTecnico(b.dataset.editTecnico); if(b.dataset.editLocal)editLocal(b.dataset.editLocal); if(b.dataset.desativarModelo)await desativarModelo(b.dataset.desativarModelo); if(b.dataset.desativarTecnico)await desativarTecnico(b.dataset.desativarTecnico); if(b.dataset.desativarLocal)await desativarLocal(b.dataset.desativarLocal);}catch(e){msg('modeloMsg',e.message,'bad')}});
 }
 async function boot(){setSession(null); const c=cfg(); if($('loginEmail'))$('loginEmail').value=c.email||''; try{init(); const s=await session(); setSession(s?.user||null); if(s?.user)await loadAll();}catch(e){setSession(null); msg('loginMsg',e.message,'bad')}}
 bind(); boot();
