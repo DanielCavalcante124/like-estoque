@@ -1,13 +1,14 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "release_date": "2026-06-09",
   "environment": "production",
-  "codename": "entrada-reestruturada",
-  "summary": "Reestruturação física dos fluxos de entrada individual e entrada em lote, remoção de patches externos e cache atualizado.",
+  "codename": "sem-patches",
+  "summary": "Remoção definitiva de arquivos de contorno, incorporação da desativação no módulo principal e atualização de cache.",
   "modules": {
+    "main": "7",
     "entrada": "5",
     "entrada_lote": "5",
-    "desativar_modelo_fix": "3"
+    "version": "2"
   }
 }
