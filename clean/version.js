@@ -1,9 +1,12 @@
 (function(){
+  const params = new URLSearchParams(location.search);
+  const isStaging = params.get('env') === 'staging' || window.LIKE_ESTOQUE_ENV === 'staging';
+
   const VERSION = {
     app: 'LIKE Estoque',
-    version: '1.1.1',
+    version: isStaging ? '1.2.0-beta.1' : '1.1.3',
     releaseDate: '2026-06-09',
-    codename: 'sem-patches'
+    codename: isStaging ? 'homologacao-free' : 'camada-env'
   };
 
   function ensureBadge(){
@@ -17,14 +20,14 @@
     badge.style.zIndex = '9999';
     badge.style.padding = '7px 10px';
     badge.style.borderRadius = '999px';
-    badge.style.background = 'rgba(15, 23, 42, 0.92)';
+    badge.style.background = isStaging ? '#991b1b' : 'rgba(15, 23, 42, 0.92)';
     badge.style.color = '#fff';
     badge.style.fontSize = '11px';
     badge.style.fontWeight = '700';
     badge.style.boxShadow = '0 8px 22px rgba(0,0,0,.18)';
     badge.style.letterSpacing = '.2px';
     badge.title = VERSION.codename + ' • ' + VERSION.releaseDate;
-    badge.textContent = 'v' + VERSION.version;
+    badge.textContent = (isStaging ? 'TESTE ' : '') + 'v' + VERSION.version;
 
     document.body.appendChild(badge);
   }
