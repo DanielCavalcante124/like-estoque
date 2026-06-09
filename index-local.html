@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>LIKE Estoque - Ambiente Local</title>
+  <style>
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#0f172a;color:#e5e7eb;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}
+    .box{width:min(720px,100%);background:#111827;border:1px solid #334155;border-radius:20px;padding:28px;box-shadow:0 24px 80px rgba(0,0,0,.35)}
+    h1{margin:0 0 8px;font-size:28px}.lead{color:#cbd5e1;margin:0 0 22px;line-height:1.5}.warn{background:#1e3a8a;border:1px solid #3b82f6;color:#dbeafe;padding:12px 14px;border-radius:12px;margin:0 0 18px;font-weight:700}
+    label{display:block;margin:14px 0 6px;font-weight:700;color:#f8fafc}input{width:100%;box-sizing:border-box;padding:13px 14px;border-radius:12px;border:1px solid #475569;background:#020617;color:#f8fafc;font-size:14px}small{display:block;color:#94a3b8;margin-top:6px;line-height:1.4}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}button,a{border:0;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer;text-decoration:none}.primary{background:#2563eb;color:white}.secondary{background:#334155;color:#e5e7eb}.danger{background:#7f1d1d;color:white}.msg{margin-top:16px;color:#fde68a;font-weight:700;min-height:22px}.code{font-family:Consolas,monospace;background:#020617;border:1px solid #334155;border-radius:10px;padding:10px;overflow:auto;color:#a7f3d0}
+  </style>
+</head>
+<body>
+  <main class="box">
+    <h1>LIKE Estoque — Ambiente Local</h1>
+    <p class="lead">Use esta tela apenas quando o Supabase estiver rodando no seu PC com Docker e Supabase CLI.</p>
+    <div class="warn">Este ambiente não usa o banco de produção. Ele salva a configuração separada como <b>local</b>.</div>
+
+    <label for="localUrl">URL local do Supabase</label>
+    <input id="localUrl" value="http://127.0.0.1:54321" autocomplete="off">
+    <small>Normalmente aparece no terminal depois de rodar <b>npx supabase start</b>.</small>
+
+    <label for="localKey">Anon key local</label>
+    <input id="localKey" placeholder="Cole aqui a anon key exibida pelo Supabase CLI" autocomplete="off">
+    <small>Use a chave <b>anon key</b>, não a service_role key.</small>
+
+    <div class="actions">
+      <button class="primary" id="saveBtn" type="button">Salvar e abrir ambiente local</button>
+      <button class="secondary" id="clearBtn" type="button">Limpar configuração local</button>
+      <a class="secondary" href="index-clean.html">Abrir produção</a>
+    </div>
+
+    <p class="msg" id="msg"></p>
+    <div class="code">Destino: index-clean.html?env=local</div>
+  </main>
+
+  <script>
+    const KEY = 'like_cfg_v27_local';
+    const msg = document.getElementById('msg');
+    const url = document.getElementById('localUrl');
+    const key = document.getElementById('localKey');
+
+    try{
+      const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+      if(saved.url) url.value = saved.url;
+      if(saved.key) key.value = saved.key;
+    }catch(e){}
+
+    document.getElementById('saveBtn').onclick = () => {
+      const finalUrl = String(url.value || '').trim();
+      const finalKey = String(key.value || '').trim();
+      if(!finalUrl){ msg.textContent = 'Informe a URL local do Supabase.'; return; }
+      if(!finalKey){ msg.textContent = 'Cole a anon key local exibida pelo Supabase CLI.'; return; }
+      localStorage.setItem(KEY, JSON.stringify({ url: finalUrl, key: finalKey, env: 'local' }));
+      location.href = 'index-clean.html?env=local';
+    };
+
+    document.getElementById('clearBtn').onclick = () => {
+      localStorage.removeItem(KEY);
+      key.value = '';
+      msg.textContent = 'Configuração local apagada.';
+    };
+  </script>
+</body>
+</html>
