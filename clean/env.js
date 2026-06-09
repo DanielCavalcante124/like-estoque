@@ -13,12 +13,6 @@ export function envLabel(){
   return IS_STAGING ? 'AMBIENTE DE TESTE' : 'PRODUÇÃO';
 }
 
-export function assertCanWrite(action='operação'){
-  if(IS_STAGING){
-    throw new Error(`Ambiente de teste: ${action} bloqueada para proteger o banco de produção.`);
-  }
-}
-
 export function canRunRpc(rpcName){
   if(!IS_STAGING) return true;
 
@@ -43,19 +37,13 @@ export function canRunRpc(rpcName){
   return allowed.some(rx => rx.test(String(rpcName || '')));
 }
 
-export function assertRpcAllowed(rpcName){
-  if(!canRunRpc(rpcName)){
-    throw new Error(`Ambiente de teste: a RPC ${rpcName} foi bloqueada para não gravar no banco real.`);
-  }
-}
-
 function bootBanner(){
   if(!IS_STAGING) return;
   if(document.getElementById('ambienteTesteBanner')) return;
 
   const banner = document.createElement('div');
   banner.id = 'ambienteTesteBanner';
-  banner.textContent = 'AMBIENTE DE TESTE — gravações bloqueadas no Supabase real';
+  banner.textContent = 'AMBIENTE DE TESTE — gravando somente em tabelas teste_';
   banner.style.position = 'fixed';
   banner.style.left = '0';
   banner.style.right = '0';
