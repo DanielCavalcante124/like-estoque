@@ -50,8 +50,10 @@
 (function(){
   if(window.likeEntradaFluxoSeguroLoader)return;
   window.likeEntradaFluxoSeguroLoader=true;
-  var s=document.createElement('script');
-  s.src='clean/entrada_fluxo_seguro.js?v=1';
-  s.defer=true;
-  document.body.appendChild(s);
+  ['clean/entrada_fluxo_seguro.js?v=2','clean/entrada_normal_confirmacao.js?v=1'].forEach(function(src){
+    var s=document.createElement('script');
+    s.src=src;
+    s.defer=true;
+    document.body.appendChild(s);
+  });
 })();
