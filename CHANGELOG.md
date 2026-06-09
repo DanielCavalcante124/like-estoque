@@ -10,6 +10,28 @@ Formato adotado: versionamento semântico.
 
 ---
 
+## [1.1.1] - 2026-06-09
+
+### Alterado
+
+- Incorporada a desativação de modelo, técnico e local diretamente no módulo oficial `clean/main.js`.
+- O fluxo de desativação agora usa card interno com motivo obrigatório, sem caixa nativa do navegador.
+- Atualizado cache do `index-clean.html` para carregar `clean/main.js?v=7` e `clean/version.js?v=2`.
+
+### Removido
+
+- Removido definitivamente o carregamento de `clean/desativar-modelo-fix.js`.
+- Removido o arquivo `clean/desativar-modelo-fix.js` do repositório.
+- Removido uso de caixa nativa para desativação em cadastros.
+
+### Segurança operacional
+
+- Desativação agora exige motivo com no mínimo 6 caracteres.
+- Histórico continua preservado via RPC oficial.
+- Fluxo de cadastro deixa de depender de arquivo de contorno.
+
+---
+
 ## [1.1.0] - 2026-06-09
 
 ### Adicionado
