@@ -1,9 +1,19 @@
-import { APP_ENV, IS_STAGING, canRunRpc } from './env.js?v=1';
+import { APP_ENV, IS_STAGING, IS_LOCAL, canRunRpc } from './env.js?v=2';
 
 let sb = null;
 
-const DEFAULT_URL = 'https://yuyeyawigbbjtzghkbbr.supabase.co';
-const DEFAULT_KEY = ['sb_publishable','_9DyOYVHN6035kbUjypbDkA_4zYHk_pI'].join('');
+const DEFAULT_PROD_URL = 'https://yuyeyawigbbjtzghkbbr.supabase.co';
+const DEFAULT_PROD_KEY = ['sb_publishable','_9DyOYVHN6035kbUjypbDkA_4zYHk_pI'].join('');
+const DEFAULT_LOCAL_URL = 'http://127.0.0.1:54321';
+const LEGACY_KEY = 'like_cfg_v26';
+const ENV_KEY = 'like_cfg_v27_' + APP_ENV;
+
+function defaultConfig(){
+  if(IS_LOCAL){
+    return { url: DEFAULT_LOCAL_URL, key: '', email: '', env: APP_ENV };
+  }
+  return { url: DEFAULT_PROD_URL, key: DEFAULT_PROD_KEY, email: '', env: APP_ENV };
+}
 
 function dbTable(name){
   if(!IS_STAGING) return name;
@@ -22,28 +32,34 @@ function dbRpc(name){
 
 export function cfg(){
   try {
-    const saved = JSON.parse(localStorage.getItem('like_cfg_v26') || '{}');
+    const base = defaultConfig();
+    const saved = JSON.parse(localStorage.getItem(ENV_KEY) || '{}');
     return {
-      url: saved.url || DEFAULT_URL,
-      key: saved.key || DEFAULT_KEY,
+      url: saved.url || base.url,
+      key: saved.key || base.key,
       email: saved.email || '',
       env: APP_ENV
     };
   } catch(e){
-    return { url: DEFAULT_URL, key: DEFAULT_KEY, email: '', env: APP_ENV };
+    return defaultConfig();
   }
 }
 
 export function save(c){
   const current = cfg();
   const next = { ...current, ...c, env: APP_ENV };
-  localStorage.setItem('like_cfg_v26', JSON.stringify(next));
+  localStorage.setItem(ENV_KEY, JSON.stringify(next));
+  if(APP_ENV !== 'production'){
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || '{}');
+    const safeLegacy = { ...legacy, email: next.email || legacy.email || '' };
+    localStorage.setItem(LEGACY_KEY, JSON.stringify(safeLegacy));
+  }
 }
 
 export function init(url, token){
   const finalUrl = url || cfg().url;
   const finalToken = token || cfg().key;
-  if(!finalUrl || !finalToken) throw new Error('Configuração do Supabase ausente.');
+  if(!finalUrl || !finalToken) throw new Error('Configuração do Supabase ausente para o ambiente ' + APP_ENV + '.');
   sb = window.supabase.createClient(finalUrl, finalToken);
   return sb;
 }
@@ -67,3 +83,4 @@ export async function call(name, params){ const r = await db().rpc(dbRpc(name), 
 export function first(data){ return Array.isArray(data) ? data[0] : data; }
 export function appEnvironment(){ return APP_ENV; }
 export function isStaging(){ return IS_STAGING; }
+export function isLocal(){ return IS_LOCAL; }
