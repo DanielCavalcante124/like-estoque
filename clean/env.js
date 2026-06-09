@@ -1,16 +1,19 @@
 const params = new URLSearchParams(location.search);
 const urlEnv = params.get('env') || '';
 const forcedEnv = window.LIKE_ESTOQUE_ENV || '';
-const pathEnv = location.pathname.toLowerCase().includes('teste') ? 'staging' : '';
+const pathEnv = location.pathname.toLowerCase().includes('teste') ? 'staging' : location.pathname.toLowerCase().includes('local') ? 'local' : '';
 
 const rawEnv = forcedEnv || urlEnv || pathEnv || 'production';
 
-export const APP_ENV = rawEnv === 'staging' ? 'staging' : 'production';
+export const APP_ENV = ['staging','local'].includes(rawEnv) ? rawEnv : 'production';
 export const IS_STAGING = APP_ENV === 'staging';
+export const IS_LOCAL = APP_ENV === 'local';
 export const IS_PRODUCTION = APP_ENV === 'production';
 
 export function envLabel(){
-  return IS_STAGING ? 'AMBIENTE DE TESTE' : 'PRODUÇÃO';
+  if(IS_STAGING) return 'AMBIENTE DE TESTE ONLINE';
+  if(IS_LOCAL) return 'AMBIENTE LOCAL';
+  return 'PRODUÇÃO';
 }
 
 export function canRunRpc(rpcName){
@@ -38,12 +41,14 @@ export function canRunRpc(rpcName){
 }
 
 function bootBanner(){
-  if(!IS_STAGING) return;
+  if(!IS_STAGING && !IS_LOCAL) return;
   if(document.getElementById('ambienteTesteBanner')) return;
 
   const banner = document.createElement('div');
   banner.id = 'ambienteTesteBanner';
-  banner.textContent = 'AMBIENTE DE TESTE — gravando somente em tabelas teste_';
+  banner.textContent = IS_LOCAL
+    ? 'AMBIENTE LOCAL — Supabase no PC, sem banco de produção'
+    : 'AMBIENTE DE TESTE — gravando somente em tabelas teste_';
   banner.style.position = 'fixed';
   banner.style.left = '0';
   banner.style.right = '0';
@@ -53,7 +58,7 @@ function bootBanner(){
   banner.style.textAlign = 'center';
   banner.style.fontWeight = '900';
   banner.style.letterSpacing = '.4px';
-  banner.style.background = '#b91c1c';
+  banner.style.background = IS_LOCAL ? '#1d4ed8' : '#b91c1c';
   banner.style.color = '#fff';
   banner.style.boxShadow = '0 8px 22px rgba(0,0,0,.22)';
 
