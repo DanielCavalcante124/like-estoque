@@ -6,9 +6,9 @@
 
   const VERSION = {
     app: 'LIKE Estoque',
-    version: isLocal ? '1.3.0-local.1' : isStaging ? '1.2.0-beta.2' : '1.1.5',
+    version: isLocal ? '1.3.0-local.2' : isStaging ? '1.2.0-beta.3' : '1.1.6',
     releaseDate: '2026-06-09',
-    codename: isLocal ? 'supabase-local' : isStaging ? 'homologacao-com-banco-teste' : 'ambiente-local-pronto'
+    codename: isLocal ? 'local-pdf-print' : isStaging ? 'homologacao-pdf-print' : 'pdf-impressao-opcional'
   };
 
   function ensureBadge(){
