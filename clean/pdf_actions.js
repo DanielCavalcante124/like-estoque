@@ -61,7 +61,7 @@
       <div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between">
         <div>
           <div style="font-weight:900;font-size:14px;margin-bottom:3px">PDF gerado</div>
-          <div style="font-size:12px;color:#cbd5e1;line-height:1.35;word-break:break-word"></div>
+          <div data-pdf-filename style="font-size:12px;color:#cbd5e1;line-height:1.35;word-break:break-word"></div>
         </div>
         <button type="button" data-pdf-close style="border:0;background:transparent;color:#cbd5e1;font-size:20px;cursor:pointer;line-height:1">×</button>
       </div>
@@ -73,7 +73,7 @@
       <div style="font-size:11px;color:#94a3b8;margin-top:10px;line-height:1.35">A impressão é opcional. O download automático atual continua funcionando.</div>
     `;
 
-    panel.querySelector('div div div:nth-child(2)').textContent = filename;
+    panel.querySelector('[data-pdf-filename]').textContent = filename;
     panel.querySelector('[data-pdf-close]').onclick = () => panel.remove();
     panel.querySelector('[data-pdf-print]').onclick = () => printPdfUrl(url);
     panel.querySelector('[data-pdf-download]').onclick = () => downloadPdfUrl(url, filename);
