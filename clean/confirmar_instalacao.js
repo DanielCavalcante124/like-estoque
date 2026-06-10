@@ -24,9 +24,13 @@ function statusAberto(e){
 function equipamentosEmAberto(){ return S.equipamentos.filter(e => ativo(e) && statusAberto(e)); }
 function equipamentoSelecionado(){ return S.equipamentos.find(e => e.id === $('instalacaoEquipamento')?.value); }
 
+function pontoOperacao(){
+  return $('navOperacaoRapidaClean') || $('navSaidaClean') || $('navEntradaLoteClean') || $('navEntradaClean') || document.querySelector('[data-page="dashboard"]');
+}
+
 function inject(){
   if(!$('navConfirmarInstalacao')){
-    const ref = $('navSaidaClean') || $('navEntradaLoteClean') || $('navEntradaClean') || document.querySelector('[data-page="cadastros"]');
+    const ref = pontoOperacao();
     const btn = document.createElement('button');
     btn.id = 'navConfirmarInstalacao';
     btn.className = 'nav';
