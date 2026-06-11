@@ -1,6 +1,6 @@
-import { table, call } from './api.js?v=3';
+import { call } from './api.js?v=5';
 
-const S = { equipamentos: [], historico: [], selecionado: null };
+const S = { equipamentos: [], historico: [], selecionado: null, total: 0, busca: '', timer: null, carregando: false };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const norm = (v) => String(v || '').trim();
@@ -24,6 +24,7 @@ function dataCurta(v){
 }
 function pdfText(v){ return String(v ?? '-').replace(/\s+/g,' ').trim() || '-'; }
 function fileSafe(v){ return String(v || 'equipamento').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'equipamento'; }
+function normalizar(v){ return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
 
 function inject(){
   if(!$('navHistoricoClean')){
@@ -45,7 +46,7 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Histórico completo por equipamento</h2>
-            <p>Consulte a linha do tempo completa: entrada, saída, devolução, manutenção, garantia e baixa.</p>
+            <p>Consulte a linha do tempo completa: entrada, saída, devolução, manutenção, garantia e baixa. A busca de equipamento é paginada no banco.</p>
           </div>
           <button id="historicoReload" class="secondary">Recarregar dados</button>
         </div>
@@ -57,6 +58,7 @@ function inject(){
           <h2>Selecionar equipamento</h2>
           <input id="historicoBuscaEquipamento" placeholder="Buscar por código, patrimônio, MAC, SN, modelo, status ou local">
           <select id="historicoEquipamento"></select>
+          <small id="historicoTotalInfo">Mostrando até 80 equipamentos por busca.</small>
           <div class="actions">
             <button class="primary" type="submit">Carregar histórico</button>
             <button class="secondary" id="historicoLimpar" type="button">Limpar</button>
@@ -101,7 +103,11 @@ function inject(){
   $('historicoLimpar').onclick = limpar;
   $('historicoCsv').onclick = copiarCsv;
   $('historicoPdf').onclick = gerarPdf;
-  $('historicoBuscaEquipamento').oninput = renderEquipSelect;
+  $('historicoBuscaEquipamento').oninput = () => {
+    S.busca = $('historicoBuscaEquipamento')?.value || '';
+    clearTimeout(S.timer);
+    S.timer = setTimeout(() => carregarEquipamentosHistorico().catch(e=>msg(e.message,'bad')), 350);
+  };
   $('historicoEquipamento').onchange = () => { S.selecionado = equipamentoSelecionado(); renderResumo(); };
   $('historicoFiltro').oninput = renderHistorico;
 }
@@ -117,19 +123,38 @@ function showPage(){
 
 async function loadHistoricoPage(){
   msg('Carregando equipamentos...', 'warn');
-  S.equipamentos = await table('equipamentos','created_at',false);
-  renderEquipSelect();
+  await carregarEquipamentosHistorico();
   renderResumo();
   renderHistorico();
   msg('Histórico pronto para consulta.', 'ok');
 }
 
-function equipamentoSelecionado(){ return S.equipamentos.find(e => e.id === $('historicoEquipamento')?.value); }
+async function carregarEquipamentosHistorico(){
+  if(S.carregando) return;
+  S.carregando = true;
+  try{
+    const res = await call('rpc_pesquisar_equipamentos_7a5', {
+      p_busca: S.busca || '',
+      p_status_filtro: 'todos',
+      p_limit: 80,
+      p_offset: 0
+    });
+    const atuais = res.items || [];
+    if(S.selecionado && !atuais.some(e=>e.id===S.selecionado.id)) atuais.unshift(S.selecionado);
+    S.equipamentos = atuais;
+    S.total = Number(res.total || 0);
+    renderEquipSelect();
+  }finally{
+    S.carregando = false;
+  }
+}
+
+function equipamentoSelecionado(){ return S.equipamentos.find(e => e.id === $('historicoEquipamento')?.value) || S.selecionado; }
 function renderEquipSelect(){
-  const filtro = ($('historicoBuscaEquipamento')?.value || '').toLowerCase();
-  const rows = S.equipamentos.filter(e => !filtro || JSON.stringify(e).toLowerCase().includes(filtro)).slice(0,300);
+  const rows = S.equipamentos.slice(0,80);
   $('historicoEquipamento').innerHTML = '<option value="">Selecionar equipamento</option>' + rows.map(e=>`<option value="${e.id}">${esc(identificacao(e))}</option>`).join('');
   if(S.selecionado && rows.some(e=>e.id === S.selecionado.id)) $('historicoEquipamento').value = S.selecionado.id;
+  if($('historicoTotalInfo')) $('historicoTotalInfo').textContent = `Mostrando ${rows.length} de ${S.total} equipamento(s). Use a busca para localizar outros.`;
 }
 
 function renderResumo(){
@@ -163,8 +188,8 @@ async function carregarHistorico(ev){
 }
 
 function movimentosFiltrados(){
-  const filtro = ($('historicoFiltro')?.value || '').toLowerCase();
-  return S.historico.filter(m => !filtro || JSON.stringify(m).toLowerCase().includes(filtro));
+  const filtro = normalizar($('historicoFiltro')?.value || '');
+  return S.historico.filter(m => !filtro || normalizar([m.tipo,m.tecnico,m.os,m.motivo,m.destino,m.status_final,m.cliente,m.condicao,m.obs].filter(Boolean).join(' ')).includes(filtro));
 }
 function renderHistorico(){
   const rows = movimentosFiltrados();
@@ -242,7 +267,7 @@ async function gerarPdf(){
     if(!eq) throw new Error('Selecione um equipamento antes de gerar PDF.');
     if(!S.historico.length) throw new Error('Carregue o histórico antes de gerar PDF.');
     if(!rows.length) throw new Error('Nenhum movimento encontrado para gerar PDF.');
-    if(!window.jspdf?.jsPDF) throw new Error('Biblioteca jsPDF não carregou. Recarregue a página e tente novamente.');
+    if(!window.jspdf?.jsPDF) throw new Error('Biblioteca jsPDF não carregou. Recarregue a página.');
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
@@ -300,6 +325,7 @@ function limpar(){
   ['historicoBuscaEquipamento','historicoEquipamento','historicoFiltro'].forEach(id=>{ if($(id)) $(id).value=''; });
   S.selecionado = null;
   S.historico = [];
+  S.busca = '';
   renderEquipSelect();
   renderResumo();
   renderHistorico();
@@ -308,3 +334,21 @@ function limpar(){
 
 inject();
 window.historicoCleanLoad = loadHistoricoPage;
+window.historicoCleanSelectById = async function(id){
+  if(!id) return false;
+  if(S.equipamentos.some(e=>e.id===id)){
+    $('historicoEquipamento').value = id;
+    S.selecionado = equipamentoSelecionado();
+    renderResumo();
+    return true;
+  }
+  const res = await call('rpc_pesquisar_equipamentos_7a5', { p_busca:id, p_status_filtro:'todos', p_limit:10, p_offset:0 });
+  const eq = (res.items || []).find(e=>e.id===id);
+  if(!eq) return false;
+  S.selecionado = eq;
+  if(!S.equipamentos.some(e=>e.id===id)) S.equipamentos.unshift(eq);
+  renderEquipSelect();
+  $('historicoEquipamento').value = id;
+  renderResumo();
+  return true;
+};
