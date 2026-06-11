@@ -1,16 +1,17 @@
-import { table, call, first } from './api.js?v=3';
+import { table, call, first } from './api.js?v=5';
 import { openMovimentacaoModal } from './movimentacao_modal.js?v=1';
 
-const S = { equipamentos: [], tecnicos: [], selecionado: null, ultimoComprovante: null };
+const S = { equipamentos: [], tecnicos: [], selecionado: null, ultimoComprovante: null, total: 0, busca: '', timer: null, carregando: false };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const opId = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2);
 const ativo = (x) => x && x.ativo !== false;
 const norm = (v) => String(v || '').trim();
 const safeFile = (v) => String(v || 'baixa').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'baixa';
+const normalizar = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 let bound = false;
 
-const STATUS_ELEGIVEIS = ['aguardando baixa','inutilizado','defeituoso','manutenção','em manutenção','em manutencao','garantia'];
+const STATUS_ELEGIVEIS = ['aguardando baixa','inutilizado','defeituoso','manutencao','manutencao','em manutencao','em manutencao','garantia'];
 
 function msg(text, type=''){
   const el = $('baixaMsg');
@@ -20,15 +21,15 @@ function msg(text, type=''){
 }
 function nomeEq(e){ return [e?.tipo,e?.marca,e?.modelo].filter(Boolean).join(' ') || e?.codigo || '-'; }
 function identificacao(e){ return [e.codigo, e.mac, e.serial, nomeEq(e)].filter(Boolean).join(' • '); }
-function statusLower(e){ return String(e.status || '').toLowerCase(); }
-function localLower(e){ return String(e.local || '').toLowerCase(); }
+function statusLower(e){ return normalizar(e.status); }
+function localLower(e){ return normalizar(e.local); }
 function nowBR(){ return new Date().toLocaleString('pt-BR'); }
 function todayFile(){ return new Date().toISOString().slice(0,10); }
 function isElegivelBaixa(e){
   if(!ativo(e)) return false;
   const s = statusLower(e);
   const l = localLower(e);
-  return STATUS_ELEGIVEIS.includes(s) || l.includes('manutenção') || l.includes('garantia');
+  return STATUS_ELEGIVEIS.includes(s) || l.includes('manutencao') || l.includes('garantia');
 }
 
 function inject(){
@@ -51,7 +52,7 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Baixa controlada</h2>
-            <p>Finalize a baixa lógica de equipamentos já avaliados tecnicamente. Não exclui fisicamente o registro.</p>
+            <p>Finalize a baixa lógica de equipamentos já avaliados tecnicamente. Não exclui fisicamente o registro. A fila é buscada no banco.</p>
           </div>
           <button id="baixaReload" class="secondary">Recarregar dados</button>
         </div>
@@ -82,8 +83,11 @@ function inject(){
 
       <div class="card">
         <div class="table-head">
-          <h2>Fila elegível para baixa</h2>
-          <input id="baixaFiltroTabela" placeholder="Filtrar lista">
+          <div>
+            <h2>Fila elegível para baixa</h2>
+            <p id="baixaTotalInfo">Mostrando até 80 equipamentos.</p>
+          </div>
+          <input id="baixaFiltroTabela" placeholder="Filtrar lista carregada">
         </div>
         <div class="table-wrap">
           <table>
@@ -101,7 +105,11 @@ function inject(){
   $('baixaForm').onsubmit = abrirConfirmacao;
   $('baixaLimpar').onclick = limparForm;
   $('baixaUltimoComprovante').onclick = copiarUltimoComprovante;
-  $('baixaBuscaEquipamento').oninput = renderEquipSelect;
+  $('baixaBuscaEquipamento').oninput = () => {
+    S.busca = $('baixaBuscaEquipamento')?.value || '';
+    clearTimeout(S.timer);
+    S.timer = setTimeout(() => carregarEquipamentosBaixa().catch(e=>msg(e.message,'bad')), 350);
+  };
   $('baixaEquipamento').onchange = selecionarEquipamento;
   ['baixaResponsavel','baixaMotivo','baixaObs','baixaFiltroTabela'].forEach(id=>{
     const el = $(id);
@@ -110,8 +118,7 @@ function inject(){
   document.addEventListener('click', ev => {
     const btn = ev.target.closest('[data-baixa-eq]');
     if(!btn) return;
-    $('baixaEquipamento').value = btn.dataset.baixaEq;
-    selecionarEquipamento();
+    selecionarEquipamentoId(btn.dataset.baixaEq);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 }
@@ -127,13 +134,32 @@ function showPage(){
 
 async function loadBaixa(){
   msg('Carregando fila de baixa...', 'warn');
-  S.equipamentos = await table('equipamentos','created_at',false);
   S.tecnicos = await table('tecnicos','nome',true);
   fillResponsaveis();
-  renderEquipSelect();
-  renderTabela();
+  await carregarEquipamentosBaixa();
   renderPreview();
   msg('Baixa controlada pronta para uso.', 'ok');
+}
+
+async function carregarEquipamentosBaixa(){
+  if(S.carregando) return;
+  S.carregando = true;
+  try{
+    const res = await call('rpc_pesquisar_equipamentos_7a5', {
+      p_busca: S.busca || '',
+      p_status_filtro: 'baixa',
+      p_limit: 80,
+      p_offset: 0
+    });
+    const atuais = res.items || [];
+    if(S.selecionado && !atuais.some(e=>e.id===S.selecionado.id)) atuais.unshift(S.selecionado);
+    S.equipamentos = atuais.filter(isElegivelBaixa);
+    S.total = Number(res.total || 0);
+    renderEquipSelect();
+    renderTabela();
+  }finally{
+    S.carregando = false;
+  }
 }
 
 function fillResponsaveis(){
@@ -141,10 +167,17 @@ function fillResponsaveis(){
   $('baixaResponsavel').innerHTML = '<option value="">Responsável pela baixa</option>' + tecnicos.map(t=>`<option value="${esc(t.nome)}">${esc(t.nome)}</option>`).join('');
 }
 function equipamentosElegiveis(){ return S.equipamentos.filter(isElegivelBaixa); }
-function equipamentoSelecionado(){ return S.equipamentos.find(e=>e.id === $('baixaEquipamento')?.value); }
+function equipamentoSelecionado(){ return S.equipamentos.find(e=>e.id === $('baixaEquipamento')?.value) || S.selecionado; }
+function selecionarEquipamentoId(id){
+  const eq = S.equipamentos.find(e=>e.id === id);
+  if(!eq) return;
+  S.selecionado = eq;
+  renderEquipSelect();
+  $('baixaEquipamento').value = id;
+  selecionarEquipamento();
+}
 function renderEquipSelect(){
-  const filtro = ($('baixaBuscaEquipamento')?.value || '').toLowerCase();
-  const rows = equipamentosElegiveis().filter(e => !filtro || JSON.stringify(e).toLowerCase().includes(filtro)).slice(0,200);
+  const rows = equipamentosElegiveis().slice(0,80);
   $('baixaEquipamento').innerHTML = '<option value="">Selecionar equipamento para baixa</option>' + rows.map(e=>`<option value="${e.id}">${esc(identificacao(e))}</option>`).join('');
   if(S.selecionado && rows.some(e=>e.id === S.selecionado.id)) $('baixaEquipamento').value = S.selecionado.id;
 }
@@ -324,15 +357,17 @@ async function confirmarBaixa(p){
 }
 
 function limparForm(show=true){
-  ['baixaBuscaEquipamento','baixaEquipamento','baixaResponsavel','baixaMotivo','baixaObs'].forEach(id=>{ if($(id)) $(id).value=''; });
+  ['baixaBuscaEquipamento','baixaEquipamento','baixaResponsavel','baixaMotivo','baixaObs','baixaFiltroTabela'].forEach(id=>{ if($(id)) $(id).value=''; });
   S.selecionado = null;
+  S.busca = '';
   renderEquipSelect();
   renderPreview();
   if(show) msg('Formulário limpo.', 'ok');
 }
 function renderTabela(){
-  const filtro = ($('baixaFiltroTabela')?.value || '').toLowerCase();
-  const rows = equipamentosElegiveis().filter(e => !filtro || JSON.stringify(e).toLowerCase().includes(filtro)).slice(0,100);
+  const filtro = normalizar($('baixaFiltroTabela')?.value || '');
+  const rows = equipamentosElegiveis().filter(e => !filtro || normalizar([e.codigo,e.mac,e.serial,e.tipo,e.marca,e.modelo,e.status,e.local,e.motivo_atual,e.motivo_baixa].filter(Boolean).join(' ')).includes(filtro)).slice(0,80);
+  if($('baixaTotalInfo')) $('baixaTotalInfo').textContent = `Mostrando ${S.equipamentos.length} de ${S.total} elegíveis. Use a busca para localizar outros.`;
   $('baixaTbody').innerHTML = rows.map(e=>`
     <tr>
       <td><b>${esc(e.codigo || '-')}</b></td>
@@ -347,3 +382,16 @@ function renderTabela(){
 
 inject();
 window.baixaCleanLoad = loadBaixa;
+window.baixaCleanSelectById = async function(id){
+  if(!id) return false;
+  if(S.equipamentos.some(e=>e.id===id)){ selecionarEquipamentoId(id); return true; }
+  const res = await call('rpc_pesquisar_equipamentos_7a5', { p_busca:id, p_status_filtro:'todos', p_limit:10, p_offset:0 });
+  const eq = (res.items || []).find(e=>e.id===id);
+  if(!eq) return false;
+  S.selecionado = eq;
+  if(!S.equipamentos.some(e=>e.id===id)) S.equipamentos.unshift(eq);
+  renderEquipSelect();
+  $('baixaEquipamento').value = id;
+  selecionarEquipamento();
+  return true;
+};
