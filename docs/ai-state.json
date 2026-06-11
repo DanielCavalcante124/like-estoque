@@ -1,0 +1,185 @@
+{
+  "project": {
+    "name": "LIKE Estoque",
+    "repository": "DanielCavalcante124/like-estoque",
+    "supabase_project_id": "yuyeyawigbbjtzghkbbr",
+    "hosting": "GitHub Pages + Supabase",
+    "primary_entry": "index-clean.html",
+    "current_production_version": "1.1.7",
+    "current_staging_version": "1.2.0-beta.4",
+    "current_local_version": "1.3.0-local.3"
+  },
+  "owner_preferences": {
+    "language": "pt-BR",
+    "style": [
+      "direto",
+      "tecnico",
+      "objetivo",
+      "sem enrolacao"
+    ],
+    "role_expected_from_ai": "programador full stack senior",
+    "needs_step_by_step_for": [
+      "Supabase",
+      "banco de dados",
+      "GitHub",
+      "deploy",
+      "ambiente local"
+    ],
+    "do_not_suggest": [
+      "gambiarras",
+      "patch paralelo desnecessario",
+      "prompt do navegador",
+      "confirm do navegador",
+      "senhas em texto puro",
+      "excluir historico",
+      "controle de kit"
+    ]
+  },
+  "hard_rules": {
+    "architecture": [
+      "Alterar arquivos oficiais quando a regra estiver errada",
+      "Evitar loader ou patch para mascarar problema",
+      "Preservar historico de movimentacoes",
+      "Separar front, banco, RPC e documentacao",
+      "Atualizar cache-bust ao alterar modulo carregado no index-clean.html"
+    ],
+    "database": [
+      "Usar SELECT para validacao sem alterar dados",
+      "Usar migration para DDL",
+      "Nao usar UPDATE/INSERT/DELETE em producao sem autorizacao clara",
+      "Nao apagar equipamento para corrigir status",
+      "RPC critica deve registrar movimento"
+    ],
+    "security": [
+      "Nunca expor service_role no frontend",
+      "Usar RLS e grants restritos",
+      "RPC critica deve ser apenas para authenticated",
+      "Executar Supabase advisors apos mudancas sensiveis"
+    ],
+    "ux": [
+      "Nao usar prompt()",
+      "Nao usar confirm()",
+      "Usar cards/modais internos",
+      "Colocar botoes no grupo correto do menu"
+    ]
+  },
+  "environments": {
+    "production": {
+      "url_mode": "index-clean.html",
+      "tables": "real tables",
+      "description": "ambiente real, nao usar para teste destrutivo"
+    },
+    "staging": {
+      "url_mode": "index-teste.html -> index-clean.html?env=staging",
+      "tables": [
+        "teste_equipamentos",
+        "teste_movimentos"
+      ],
+      "description": "usa prefixo teste_ para escritas criticas"
+    },
+    "local": {
+      "url_mode": "index-local.html -> index-clean.html?env=local",
+      "default_api_url": "http://127.0.0.1:54321",
+      "storage_key": "like_cfg_v27_local",
+      "description": "Supabase local no PC"
+    }
+  },
+  "important_files": {
+    "frontend_entry": "index-clean.html",
+    "api_layer": "clean/api.js",
+    "environment_layer": "clean/env.js",
+    "version_badge": "clean/version.js",
+    "permissions_and_menu_grouping": "clean/permissoes.js",
+    "menu_operation_fix": "clean/menu_operacao_fix.js",
+    "pdf_print_actions": "clean/pdf_actions.js",
+    "technician_screen": "clean/tecnicos.js",
+    "confirm_installation_screen": "clean/confirmar_instalacao.js",
+    "normal_entry": "clean/entrada.js",
+    "batch_entry": "clean/entrada_lote.js",
+    "version_file": "version.json",
+    "human_continuity_doc": "docs/CONTINUIDADE_CHATGPT.md"
+  },
+  "implemented_features": {
+    "pdf_optional_print": {
+      "file": "clean/pdf_actions.js",
+      "behavior": "intercepta jsPDF doc.save, mantem download e oferece imprimir/agora abrir/baixar novamente",
+      "risk": "baixo, nao altera regras de movimentacao"
+    },
+    "confirm_installation": {
+      "file": "clean/confirmar_instalacao.js",
+      "rpc_production": "rpc_confirmar_instalacao_cliente",
+      "rpc_staging": "teste_rpc_confirmar_instalacao_cliente",
+      "status_from": [
+        "Com técnico",
+        "Com tecnico",
+        "Na rua",
+        "Reservado"
+      ],
+      "status_to": "Instalado cliente",
+      "effects": [
+        "limpa tecnico_atual",
+        "grava cliente_atual",
+        "grava os_atual",
+        "local vira cliente/endereco",
+        "insere movimento historico preservando tecnico anterior"
+      ],
+      "note": "menu atualmente usa clean/menu_operacao_fix.js para ficar em Operacao"
+    },
+    "technician_whatsapp_charge": {
+      "file": "clean/tecnicos.js",
+      "button": "Copiar cobrança WhatsApp",
+      "old_button_preserved": "Copiar resumo",
+      "behavior": "gera mensagem para cobrar equipamentos e materiais em posse do tecnico",
+      "writes_to_database": false,
+      "fallback": "textarea manual caso clipboard seja bloqueado"
+    },
+    "normal_entry": {
+      "file": "clean/entrada.js",
+      "behavior": "MAC e Serial/SN separados, confirmacao interna, RPC oficial"
+    },
+    "batch_entry": {
+      "file": "clean/entrada_lote.js",
+      "behavior": "pre-cadastro em lote, valida duplicidade, confirmacao interna, RPC oficial"
+    }
+  },
+  "known_technical_debt": [
+    {
+      "item": "menu_operacao_fix.js",
+      "reason": "confirmar instalacao caiu em Outros porque permissoes.js tem lista fixa de categorias",
+      "best_future_fix": "adicionar navConfirmarInstalacao diretamente em NAV_RULES e CATEGORIES de clean/permissoes.js"
+    },
+    {
+      "item": "index-clean.html texts",
+      "reason": "ainda possui textos antigos mencionando patches antigos",
+      "best_future_fix": "limpar topbar e brand em uma alteracao controlada"
+    },
+    {
+      "item": "cache-bust imports",
+      "reason": "alguns modulos ainda importam api.js/env.js com versoes antigas",
+      "best_future_fix": "padronizar versoes dos imports sem alterar regra de negocio"
+    },
+    {
+      "item": "local migrations",
+      "reason": "ambiente local pronto no front, mas schema local completo ainda deve ser versionado em migrations",
+      "best_future_fix": "criar supabase/migrations com schema e RPCs oficiais"
+    }
+  ],
+  "safe_validation_policy": {
+    "allowed_without_confirmation": [
+      "GitHub fetch_file",
+      "GitHub search",
+      "Supabase SELECT",
+      "Supabase list_tables",
+      "Supabase get_advisors"
+    ],
+    "requires_explicit_confirmation": [
+      "UPDATE em producao",
+      "INSERT em producao",
+      "DELETE em producao",
+      "migration DDL",
+      "execucao de RPC que altera estado real",
+      "alteracao de permissao sensivel"
+    ]
+  },
+  "handoff_prompt_short": "Leia docs/CONTINUIDADE_CHATGPT.md e docs/ai-state.json no repo DanielCavalcante124/like-estoque antes de continuar. Aja como full stack senior, sem gambiarra, sem prompt/confirm, preservando historico e seguranca. Primeiro resuma o estado atual e depois continue do ponto solicitado."
+}
