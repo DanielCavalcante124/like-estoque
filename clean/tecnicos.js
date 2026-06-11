@@ -1,13 +1,11 @@
-import { table } from './api.js?v=5';
+import { call } from './api.js?v=5';
 
-const S = { tecnicos: [], equipamentos: [], saldos: [], movEq: [], movMat: [], sel: '' };
+const S = { resumo: null, tecnicos: [], detalhe: null, sel: '' };
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 const br = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const qtd = v => Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
 const norm = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-const ativo = x => x && x.ativo !== false && !['baixado', 'inutilizado', 'perdido'].includes(norm(x.status));
-const statusSemPosse = e => ['em estoque', 'baixado', 'inutilizado', 'perdido', 'instalado cliente', 'instalado no cliente'].includes(norm(e.status));
 
 function msg(t, c = ''){
   const e = $('tecCleanMsg');
@@ -15,25 +13,21 @@ function msg(t, c = ''){
 }
 function nomeEq(e){ return [e.tipo, e.marca, e.modelo].filter(Boolean).join(' ') || 'Equipamento'; }
 function nomeMat(m){ return [m.tipo, m.marca, m.modelo].filter(Boolean).join(' ') || 'Material'; }
-function tecEq(e){ return String(e.tecnico_atual || e.tecnico || '').trim(); }
-function eqs(n){ return S.equipamentos.filter(e => tecEq(e) === n && ativo(e) && !statusSemPosse(e)); }
-function mats(n){ return S.saldos.filter(s => String(s.tecnico || '').trim() === n && Number(s.quantidade || 0) > 0); }
-function valor(n){ return eqs(n).reduce((a, e) => a + Number(e.custo || 0), 0); }
-function nomes(){
-  const r = new Set();
-  S.tecnicos.filter(ativo).forEach(t => t.nome && r.add(t.nome));
-  S.equipamentos.forEach(e => tecEq(e) && r.add(tecEq(e)));
-  S.saldos.forEach(s => s.tecnico && r.add(String(s.tecnico).trim()));
-  return [...r].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-}
+function itemTec(n){ return S.tecnicos.find(t => t.tecnico === n) || { tecnico:n, equipamentos:0, materiais:0, valor:0, sem_mac_sn:0, pendencias:0 }; }
+function eqs(){ return S.detalhe?.equipamentos || []; }
+function mats(){ return S.detalhe?.materiais || []; }
+function valor(n){ return Number(itemTec(n).valor || 0); }
 function pend(n){
+  const t = itemTec(n);
   const p = [];
-  const e = eqs(n), m = mats(n);
-  if(e.length) p.push(e.length + ' equipamento(s) em posse');
-  if(m.length) p.push(m.length + ' material(is) em posse');
-  const sem = e.filter(x => !x.mac && !x.serial).length;
-  if(sem) p.push(sem + ' equipamento(s) sem MAC/SN');
+  if(Number(t.equipamentos || 0)) p.push(Number(t.equipamentos || 0) + ' equipamento(s) em posse');
+  if(Number(t.materiais || 0)) p.push(Number(t.materiais || 0) + ' material(is) em posse');
+  if(Number(t.sem_mac_sn || 0)) p.push(Number(t.sem_mac_sn || 0) + ' equipamento(s) sem MAC/SN');
   return p;
+}
+function fmt(v){
+  try{ return v ? new Date(v).toLocaleString('pt-BR') : '-'; }
+  catch(e){ return String(v || '-'); }
 }
 
 function inject(){
@@ -56,7 +50,7 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Técnicos</h2>
-            <p>Visão limpa por técnico: equipamentos, materiais, pendências e cobrança por WhatsApp.</p>
+            <p>Visão por técnico calculada no banco: equipamentos, materiais, pendências e cobrança por WhatsApp.</p>
           </div>
           <button id="tecCleanReload" class="secondary">Recarregar técnicos</button>
         </div>
@@ -117,44 +111,59 @@ function show(){
 }
 
 async function load(){
-  msg('Carregando técnicos...', 'warn');
-  S.tecnicos = await table('tecnicos', 'nome', true);
-  S.equipamentos = await table('equipamentos', 'created_at', false);
-  S.saldos = await table('materiais_saldos', 'tipo', true);
-  S.movEq = await table('movimentos', 'created_at', false);
-  S.movMat = await table('materiais_movimentos', 'created_at', false);
+  msg('Carregando painel de técnicos no banco...', 'warn');
+  S.resumo = await call('rpc_tecnicos_resumo_7a5', {}) || {};
+  S.tecnicos = S.resumo.items || [];
+  if(S.sel && !S.tecnicos.some(t => t.tecnico === S.sel)){
+    S.sel = '';
+    S.detalhe = null;
+  }
   renderLista();
-  renderDetalhe();
+  await renderDetalhe();
   msg('Técnicos carregados.', 'ok');
 }
 
-function passa(n){
+function passa(t){
   const f = $('tecFiltro')?.value || 'todos';
   if(f === 'todos') return true;
-  if(f === 'eq') return eqs(n).length > 0;
-  if(f === 'mat') return mats(n).length > 0;
-  if(f === 'pend') return pend(n).length > 0;
-  if(f === 'livre') return eqs(n).length === 0 && mats(n).length === 0;
+  if(f === 'eq') return Number(t.equipamentos || 0) > 0;
+  if(f === 'mat') return Number(t.materiais || 0) > 0;
+  if(f === 'pend') return Number(t.pendencias || 0) > 0;
+  if(f === 'livre') return Number(t.equipamentos || 0) === 0 && Number(t.materiais || 0) === 0;
   return true;
 }
 
 function renderLista(){
-  const q = ($('tecBusca')?.value || '').toLowerCase();
-  const all = nomes();
-  const arr = all.filter(n => (!q || n.toLowerCase().includes(q)) && passa(n));
-  $('tecKTotal').textContent = all.length;
-  $('tecKEquip').textContent = all.filter(n => eqs(n).length).length;
-  $('tecKMat').textContent = all.filter(n => mats(n).length).length;
-  $('tecKValor').textContent = br(all.reduce((a, n) => a + valor(n), 0));
-  $('tecLista').innerHTML = arr.map(n => `
-    <div class="item" data-tec="${esc(n)}" style="cursor:pointer">
-      <div><b>${esc(n)}</b><br><small>${eqs(n).length} equipamento(s) • ${mats(n).length} material(is) • ${br(valor(n))}</small></div>
-      <span class="badge">${pend(n).length} pend.</span>
-    </div>`).join('') || '<div class="item">Nenhum técnico encontrado.</div>';
-  document.querySelectorAll('[data-tec]').forEach(x => x.onclick = () => { S.sel = x.dataset.tec; renderDetalhe(); });
+  const q = norm($('tecBusca')?.value || '');
+  const all = S.tecnicos || [];
+  const arr = all.filter(t => (!q || norm(t.tecnico).includes(q)) && passa(t));
+  $('tecKTotal').textContent = Number(S.resumo?.total || all.length).toLocaleString('pt-BR');
+  $('tecKEquip').textContent = Number(S.resumo?.com_equipamento || all.filter(t => Number(t.equipamentos || 0) > 0).length).toLocaleString('pt-BR');
+  $('tecKMat').textContent = Number(S.resumo?.com_material || all.filter(t => Number(t.materiais || 0) > 0).length).toLocaleString('pt-BR');
+  $('tecKValor').textContent = br(S.resumo?.valor_total ?? all.reduce((a, t) => a + Number(t.valor || 0), 0));
+  $('tecLista').innerHTML = arr.map(t => {
+    const n = t.tecnico;
+    return `<div class="item" data-tec="${esc(n)}" style="cursor:pointer">
+      <div><b>${esc(n)}</b><br><small>${Number(t.equipamentos || 0)} equipamento(s) • ${Number(t.materiais || 0)} material(is) • ${br(t.valor)}</small></div>
+      <span class="badge">${Number(t.pendencias || 0)} pend.</span>
+    </div>`;
+  }).join('') || '<div class="item">Nenhum técnico encontrado.</div>';
+  document.querySelectorAll('[data-tec]').forEach(x => x.onclick = () => selecionarTecnico(x.dataset.tec));
 }
 
-function renderDetalhe(){
+async function selecionarTecnico(nome){
+  S.sel = nome;
+  await carregarDetalhe(nome);
+  renderDetalhe();
+}
+async function carregarDetalhe(nome){
+  if(!nome) return;
+  msg('Carregando detalhe do técnico...', 'warn');
+  S.detalhe = await call('rpc_tecnico_detalhe_7a5', { p_tecnico: nome }) || null;
+  msg('Detalhe carregado.', 'ok');
+}
+
+async function renderDetalhe(){
   const n = S.sel;
   if(!n){
     $('tecTitulo').textContent = 'Selecione um técnico';
@@ -165,34 +174,30 @@ function renderDetalhe(){
     esconderMensagemManual();
     return;
   }
-  const e = eqs(n), m = mats(n), p = pend(n);
+  if(!S.detalhe || S.detalhe.tecnico !== n){ await carregarDetalhe(n); }
+  const e = eqs(), m = mats(), p = pend(n);
   $('tecTitulo').textContent = 'Técnico: ' + n;
   $('tecResumo').innerHTML = `<div class="kpis"><div class="kpi"><small>Equip.</small><b>${e.length}</b></div><div class="kpi"><small>Mat.</small><b>${m.length}</b></div><div class="kpi"><small>Valor</small><b>${br(valor(n))}</b></div><div class="kpi"><small>Pend.</small><b>${p.length}</b></div></div>${p.length ? `<div class="msg show bad">${p.map(esc).join('<br>')}</div>` : '<div class="msg show ok">Sem pendência crítica aparente.</div>'}`;
   $('tecEqT').innerHTML = e.map(x => `<tr><td>${esc(x.codigo)}</td><td>${esc(nomeEq(x))}</td><td>${esc(x.mac || x.serial || '-')}</td><td>${esc(x.status || '-')}</td><td>${esc(x.local || '-')}</td><td>${esc(x.cliente_atual || '-')}<br><small>${esc(x.os_atual || '')}</small></td><td>${br(x.custo)}</td></tr>`).join('') || '<tr><td colspan="7">Sem equipamento em posse.</td></tr>';
   $('tecMatT').innerHTML = m.map(x => `<tr><td>${esc(x.categoria || '')}</td><td>${esc(nomeMat(x))}</td><td>${esc(x.unidade_saida || '')}</td><td><b>${qtd(x.quantidade)}</b></td><td>${esc(x.local || '-')}</td></tr>`).join('') || '<tr><td colspan="5">Sem material em posse.</td></tr>';
-  renderHist(n);
+  renderHist();
   esconderMensagemManual();
 }
 
-function renderHist(n){
-  const a = S.movEq.filter(x => String(x.tecnico || '').trim() === n).map(x => ({ d: x.created_at || x.data, t: 'Equipamento', a: x.tipo || '', i: x.codigo || x.mac || x.serial || '', q: '', o: x.obs || x.motivo || '' }));
-  const b = S.movMat.filter(x => String(x.tecnico || '').trim() === n).map(x => ({ d: x.created_at || x.data, t: 'Material', a: x.motivo || '', i: nomeMat(x), q: qtd(x.quantidade), o: x.obs || '' }));
+function renderHist(){
+  const a = (S.detalhe?.historico_equipamentos || []).map(x => ({ d: x.created_at || x.data, t: 'Equipamento', a: x.tipo || '', i: x.codigo || x.mac || x.serial || '', q: '', o: x.obs || x.motivo || '' }));
+  const b = (S.detalhe?.historico_materiais || []).map(x => ({ d: x.created_at || x.data, t: 'Material', a: x.motivo || '', i: nomeMat(x), q: qtd(x.quantidade), o: x.obs || '' }));
   const rows = [...a, ...b].sort((x, y) => new Date(y.d || 0) - new Date(x.d || 0)).slice(0, 15);
   $('tecHistT').innerHTML = rows.map(x => `<tr><td>${esc(fmt(x.d))}</td><td>${esc(x.t)}</td><td>${esc(x.a)}</td><td>${esc(x.i)}</td><td>${esc(x.q)}</td><td>${esc(x.o)}</td></tr>`).join('') || '<tr><td colspan="6">Sem histórico recente.</td></tr>';
-}
-
-function fmt(v){
-  try{ return v ? new Date(v).toLocaleString('pt-BR') : '-'; }
-  catch(e){ return String(v || '-'); }
 }
 
 function textoResumo(){
   const n = S.sel;
   if(!n) return '';
-  const linhas = [`Resumo de estoque - ${n}`, `Equipamentos: ${eqs(n).length}`];
-  eqs(n).forEach(e => linhas.push(`- ${e.codigo || '-'} | ${nomeEq(e)} | ${e.mac || e.serial || '-'} | ${e.status || '-'}`));
-  linhas.push(`Materiais: ${mats(n).length}`);
-  mats(n).forEach(m => linhas.push(`- ${nomeMat(m)} | ${qtd(m.quantidade)} ${m.unidade_saida || ''}`));
+  const linhas = [`Resumo de estoque - ${n}`, `Equipamentos: ${eqs().length}`];
+  eqs().forEach(e => linhas.push(`- ${e.codigo || '-'} | ${nomeEq(e)} | ${e.mac || e.serial || '-'} | ${e.status || '-'}`));
+  linhas.push(`Materiais: ${mats().length}`);
+  mats().forEach(m => linhas.push(`- ${nomeMat(m)} | ${qtd(m.quantidade)} ${m.unidade_saida || ''}`));
   linhas.push(`Valor patrimônio: ${br(valor(n))}`);
   const p = pend(n);
   if(p.length){
@@ -205,33 +210,20 @@ function textoResumo(){
 function textoCobranca(){
   const n = S.sel;
   if(!n) return '';
-  const equipamentos = eqs(n);
-  const materiais = mats(n);
+  const equipamentos = eqs();
+  const materiais = mats();
   const agora = new Date().toLocaleString('pt-BR');
-
-  const linhas = [
-    `Bom dia, ${n}.`,
-    '',
-    'Estou conferindo o estoque no LIKE Estoque e consta em sua posse os itens abaixo:',
-    ''
-  ];
-
+  const linhas = [`Bom dia, ${n}.`, '', 'Estou conferindo o estoque no LIKE Estoque e consta em sua posse os itens abaixo:', ''];
   if(equipamentos.length){
     linhas.push('*Equipamentos:*');
-    equipamentos.forEach((e, i) => {
-      linhas.push(`${i + 1}. ${e.codigo || '-'} | ${nomeEq(e)} | MAC/SN: ${e.mac || e.serial || '-'} | Status: ${e.status || '-'}${e.os_atual ? ' | OS: ' + e.os_atual : ''}`);
-    });
+    equipamentos.forEach((e, i) => linhas.push(`${i + 1}. ${e.codigo || '-'} | ${nomeEq(e)} | MAC/SN: ${e.mac || e.serial || '-'} | Status: ${e.status || '-'}${e.os_atual ? ' | OS: ' + e.os_atual : ''}`));
     linhas.push('');
   }
-
   if(materiais.length){
     linhas.push('*Materiais:*');
-    materiais.forEach((m, i) => {
-      linhas.push(`${i + 1}. ${nomeMat(m)} | Qtd: ${qtd(m.quantidade)} ${m.unidade_saida || ''}`.trim());
-    });
+    materiais.forEach((m, i) => linhas.push(`${i + 1}. ${nomeMat(m)} | Qtd: ${qtd(m.quantidade)} ${m.unidade_saida || ''}`.trim()));
     linhas.push('');
   }
-
   if(!equipamentos.length && !materiais.length){
     linhas.push('No momento não consta equipamento ou material em sua posse. Caso tenha algo físico com você, responda informando para regularizarmos no sistema.');
     linhas.push('');
@@ -245,7 +237,6 @@ function textoCobranca(){
     linhas.push('Equipamento ou material sem uso precisa retornar ao estoque para baixa da sua pendência no sistema.');
     linhas.push('');
   }
-
   linhas.push(`Conferência gerada em: ${agora}`);
   return linhas.join('\n');
 }
@@ -254,7 +245,6 @@ function esconderMensagemManual(){
   const box = $('tecMensagemManual');
   if(box){ box.style.display = 'none'; box.value = ''; }
 }
-
 function mostrarMensagemManual(texto){
   const box = $('tecMensagemManual');
   if(!box) return;
@@ -263,7 +253,6 @@ function mostrarMensagemManual(texto){
   box.focus();
   box.select();
 }
-
 async function copiarTexto(texto, sucesso){
   if(!texto){ msg('Selecione um técnico.', 'bad'); return; }
   try{
@@ -275,14 +264,8 @@ async function copiarTexto(texto, sucesso){
     msg('Não consegui copiar automaticamente. O texto ficou aberto abaixo para copiar manualmente.', 'warn');
   }
 }
-
-function copiarResumo(){
-  copiarTexto(textoResumo(), 'Resumo copiado.');
-}
-
-function copiarCobranca(){
-  copiarTexto(textoCobranca(), 'Cobrança para WhatsApp copiada.');
-}
+function copiarResumo(){ copiarTexto(textoResumo(), 'Resumo copiado.'); }
+function copiarCobranca(){ copiarTexto(textoCobranca(), 'Cobrança para WhatsApp copiada.'); }
 
 inject();
 window.tecnicosCleanLoad = load;
