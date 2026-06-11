@@ -1,6 +1,6 @@
-import { table, call } from './api.js?v=3';
+import { call } from './api.js?v=5';
 
-const S = { equipamentos: [], saldos: [], tecnicos: [], cartEq: [], cartMat: [], confirmando: false, ultimoComprovante: null };
+const S = { equipamentos: [], saldos: [], tecnicos: [], kpis: {}, cartEq: [], cartMat: [], confirmando: false, ultimoComprovante: null, buscaTimer:null };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const qtd = (v) => Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
@@ -11,9 +11,9 @@ const key = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'
 const safeFile = (v) => String(v || 'saida').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'saida';
 
 const FLUXOS = {
-  devolucao: { nav:'navDevolucaoClean', load:'devolucaoCleanLoad', select:'devolucaoEquipamento', label:'Devolução' },
-  manutencao: { nav:'navManutencaoClean', load:'manutencaoCleanLoad', select:'manutencaoEquipamento', label:'Manutenção' },
-  historico: { nav:'navHistoricoClean', load:'historicoCleanLoad', select:'historicoEquipamento', form:'historicoForm', label:'Histórico' }
+  devolucao: { nav:'navDevolucaoClean', load:'devolucaoCleanLoad', select:'devolucaoEquipamento', asyncSelect:'devolucaoCleanSelectById', label:'Devolução' },
+  manutencao: { nav:'navManutencaoClean', load:'manutencaoCleanLoad', select:'manutencaoEquipamento', asyncSelect:'manutencaoCleanSelectById', label:'Manutenção' },
+  historico: { nav:'navHistoricoClean', load:'historicoCleanLoad', select:'historicoEquipamento', asyncSelect:'historicoCleanSelectById', form:'historicoForm', label:'Histórico' }
 };
 
 function msg(id, text, type=''){
@@ -31,13 +31,17 @@ function isEqComTecnico(e){ return isEqAtivo(e) && (eqStatus(e) === 'com tecnico
 function isEqCliente(e){ return isEqAtivo(e) && ['instalado cliente','instalado no cliente','na rua'].includes(eqStatus(e)); }
 function isMatCentral(m){ return !m.tecnico && norm(m.local).includes('estoque') && Number(m.quantidade || 0) > 0; }
 function matRegraFechado(m){ return norm(m.categoria).includes('material fechado'); }
-function textEq(e){ return [e.codigo,e.patrimonio,e.tipo,e.marca,e.modelo,e.mac,e.serial,e.status,e.local,e.tecnico_atual,e.cliente_atual,e.os_atual,e.motivo_atual].join(' '); }
-function textMat(m){ return [m.tipo,m.marca,m.modelo,m.categoria,m.unidade_saida,m.local,m.tecnico,m.quantidade].join(' '); }
 function exactEq(q){ const k = key(q); return S.equipamentos.find(e => [e.mac,e.serial,e.codigo,e.patrimonio].some(v => key(v) === k)); }
 function saldoById(id){ return S.saldos.find(m => m.id === id); }
 function eqById(id){ return S.equipamentos.find(e => e.id === id); }
 function todayFile(){ return new Date().toISOString().slice(0,10); }
 function nowBR(){ return new Date().toLocaleString('pt-BR'); }
+function mergeById(novos, antigos, ids){
+  const map = new Map();
+  (novos || []).forEach(x => map.set(x.id, x));
+  (antigos || []).forEach(x => { if(ids.includes(x.id) && !map.has(x.id)) map.set(x.id, x); });
+  return [...map.values()];
+}
 
 function injectCss(){
   if($('opRapidaCss')) return;
@@ -72,9 +76,9 @@ function inject(){
     sec.id = 'page-operacao-rapida-clean';
     sec.className = 'page';
     sec.innerHTML = `
-      <div class="op-hero"><h2>Operação rápida</h2><p>Bipe ou pesquise equipamentos e materiais, monte o carrinho, confira e gere comprovante da saída.</p></div>
+      <div class="op-hero"><h2>Operação rápida</h2><p>Bipe ou pesquise equipamentos e materiais. A busca é feita no banco e a saída em lote continua confirmada por RPC.</p></div>
       <div class="grid two">
-        <div class="card"><div class="table-head"><h2>Busca universal</h2><button id="opRapidaReload" class="secondary">Atualizar dados</button></div><input id="opRapidaBusca" class="op-search" placeholder="Bipe ou digite MAC, SN, código, patrimônio, técnico, cliente, OS, modelo ou material"><div id="opRapidaMsg" class="msg show">Digite ou bipe para pesquisar.</div><div id="opRapidaResultados"></div></div>
+        <div class="card"><div class="table-head"><h2>Busca universal</h2><button id="opRapidaReload" class="secondary">Atualizar KPIs</button></div><input id="opRapidaBusca" class="op-search" placeholder="Bipe ou digite MAC, SN, código, patrimônio, técnico, cliente, OS, modelo ou material"><div id="opRapidaMsg" class="msg show">Digite ou bipe para pesquisar no banco.</div><div id="opRapidaResultados"></div></div>
         <div class="card"><h2>Carrinho de saída</h2><select id="opRapidaTecnico"></select><input id="opRapidaOs" placeholder="OS/Referência opcional"><input id="opRapidaObs" placeholder="Observação opcional"><div class="actions"><button id="opRapidaConfirmar" class="primary">Conferir e confirmar</button><button id="opRapidaCopiar" class="secondary">Copiar prévia WhatsApp</button><button id="opRapidaUltimo" class="secondary">Último comprovante</button><button id="opRapidaLimpar" class="danger">Limpar</button></div><div id="opRapidaCartMsg" class="msg show">Carrinho vazio.</div><div id="opRapidaCarrinho"></div></div>
       </div>
       <div class="kpis"><div class="kpi"><small>Equipamentos no carrinho</small><b id="opKEq">0</b></div><div class="kpi"><small>Materiais no carrinho</small><b id="opKMat">0</b></div><div class="kpi"><small>Disponíveis em estoque</small><b id="opKEstoque">0</b></div><div class="kpi"><small>Com técnicos</small><b id="opKTec">0</b></div><div class="kpi"><small>Materiais centrais</small><b id="opKMatCentral">0</b></div><div class="kpi"><small>Alertas</small><b id="opKAlertas">0</b></div></div>
@@ -108,30 +112,44 @@ function showPage(){
   if($('pageTitle')) $('pageTitle').textContent = 'Operação rápida';
   load().catch(e => msg('opRapidaMsg', e.message, 'bad'));
 }
+async function buscarBanco(q){
+  const oldEq = S.equipamentos, oldMat = S.saldos;
+  const res = await call('rpc_operacao_rapida_busca_7a5', { p_busca:q || '', p_eq_limit:15, p_mat_limit:15 });
+  const cartMatIds = S.cartMat.map(x=>x.id);
+  S.equipamentos = mergeById(res?.equipamentos || [], oldEq, S.cartEq);
+  S.saldos = mergeById(res?.materiais || [], oldMat, cartMatIds);
+  S.tecnicos = res?.tecnicos || [];
+  S.kpis = res?.kpis || {};
+  fillTecnicos(); renderCart(); renderResumo();
+  return res || {};
+}
 async function load(){
-  msg('opRapidaMsg','Carregando dados da operação...', 'warn');
-  S.equipamentos = await table('equipamentos','created_at',false);
-  S.saldos = await table('materiais_saldos','tipo',true);
-  S.tecnicos = await table('tecnicos','nome',true);
-  fillTecnicos(); renderCart(); renderResumo(); pesquisar();
-  msg('opRapidaMsg','Dados atualizados. Pode bipar ou pesquisar.', 'ok');
+  msg('opRapidaMsg','Carregando KPIs e técnicos...', 'warn');
+  await buscarBanco('');
+  $('opRapidaResultados').innerHTML = '';
+  msg('opRapidaMsg','Digite ou bipe para pesquisar no banco.', 'ok');
 }
 function fillTecnicos(){
   const el = $('opRapidaTecnico'); if(!el) return;
   const old = el.value;
-  const nomes = [...new Set([...S.tecnicos.filter(t => t.ativo !== false).map(t => t.nome), ...S.equipamentos.map(e => e.tecnico_atual)].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const nomes = [...new Set((S.tecnicos || []).map(t => t.nome).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   el.innerHTML = '<option value="">Selecione o técnico</option>' + nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
   if(nomes.includes(old)) el.value = old;
 }
 function pesquisar(){
-  const out = $('opRapidaResultados'); if(!out) return;
   const q = ($('opRapidaBusca')?.value || '').trim();
-  if(!q){ out.innerHTML = ''; msg('opRapidaMsg','Digite ou bipe para pesquisar.', ''); return; }
-  const k = key(q);
-  const eqs = S.equipamentos.filter(e => key(textEq(e)).includes(k)).slice(0,15);
-  const mats = S.saldos.filter(m => key(textMat(m)).includes(k)).slice(0,15);
-  msg('opRapidaMsg', `Encontrado(s): ${eqs.length} equipamento(s) e ${mats.length} material(is).`, (eqs.length || mats.length) ? 'ok' : 'bad');
-  out.innerHTML = eqs.map(cardEq).join('') + mats.map(cardMat).join('') || '<div class="msg show bad">Nenhum item encontrado.</div>';
+  const out = $('opRapidaResultados'); if(!out) return;
+  clearTimeout(S.buscaTimer);
+  if(!q){ out.innerHTML = ''; msg('opRapidaMsg','Digite ou bipe para pesquisar no banco.', ''); return; }
+  msg('opRapidaMsg','Pesquisando no banco...', 'warn');
+  S.buscaTimer = setTimeout(async () => {
+    try{
+      const res = await buscarBanco(q);
+      const eqs = res.equipamentos || [], mats = res.materiais || [];
+      msg('opRapidaMsg', `Encontrado(s): ${eqs.length} equipamento(s) e ${mats.length} material(is).`, (eqs.length || mats.length) ? 'ok' : 'bad');
+      out.innerHTML = eqs.map(cardEq).join('') + mats.map(cardMat).join('') || '<div class="msg show bad">Nenhum item encontrado.</div>';
+    }catch(e){ msg('opRapidaMsg', e.message || String(e), 'bad'); }
+  }, 280);
 }
 function statusInfo(e){
   if(isEqDisponivel(e)) return ['Disponível para saída','ok'];
@@ -150,14 +168,14 @@ function cardMat(m){
 }
 function addEq(id){
   const e = eqById(id);
-  if(!e) return msg('opRapidaCartMsg','Equipamento não encontrado.', 'bad');
+  if(!e) return msg('opRapidaCartMsg','Equipamento não encontrado na busca atual.', 'bad');
   if(!isEqDisponivel(e)) return msg('opRapidaCartMsg', `Bloqueado: ${e.codigo || '-'} está com status ${e.status || '-'}.`, 'bad');
   if(S.cartEq.includes(id)) return msg('opRapidaCartMsg','Equipamento já está no carrinho.', 'warn');
   S.cartEq.push(id); renderCart(); msg('opRapidaCartMsg','Equipamento adicionado ao carrinho.', 'ok');
 }
 function addMat(id){
   const m = saldoById(id);
-  if(!m) return msg('opRapidaCartMsg','Material não encontrado.', 'bad');
+  if(!m) return msg('opRapidaCartMsg','Material não encontrado na busca atual.', 'bad');
   if(!isMatCentral(m)) return msg('opRapidaCartMsg','Use apenas saldo do estoque central para enviar material.', 'bad');
   if(!m.modelo_id) return msg('opRapidaCartMsg','Material sem vínculo de modelo_id. Corrija o cadastro antes.', 'bad');
   const q = Number($(`opQtdMat_${id}`)?.value || 0);
@@ -181,28 +199,23 @@ function renderCart(){
 }
 function renderResumo(){
   if(!$('opKEstoque')) return;
-  const alertas = S.equipamentos.filter(e => !isEqAtivo(e) || ['manutencao','em manutencao','aguardando baixa','garantia'].includes(eqStatus(e))).length;
-  $('opKEstoque').textContent = S.equipamentos.filter(isEqDisponivel).length;
-  $('opKTec').textContent = S.equipamentos.filter(e => isEqComTecnico(e) && !isEqCliente(e)).length;
-  $('opKMatCentral').textContent = S.saldos.filter(isMatCentral).length;
-  $('opKAlertas').textContent = alertas;
-  $('opRapidaAlertas').innerHTML = S.equipamentos.filter(e => ['manutencao','em manutencao','aguardando baixa','garantia'].includes(eqStatus(e))).slice(0,5).map(e => `<div class="item"><div><b>${esc(e.codigo || '-')}</b><br><small>${esc(nomeEq(e))} • ${esc(e.status || '-')}</small></div><span class="badge">Conferir</span></div>`).join('') || '<div class="msg show ok">Sem alerta crítico na visão rápida.</div>';
+  $('opKEstoque').textContent = Number(S.kpis.equipamentos_disponiveis || 0).toLocaleString('pt-BR');
+  $('opKTec').textContent = Number(S.kpis.equipamentos_com_tecnico || 0).toLocaleString('pt-BR');
+  $('opKMatCentral').textContent = Number(S.kpis.materiais_centrais || 0).toLocaleString('pt-BR');
+  $('opKAlertas').textContent = Number(S.kpis.alertas || 0).toLocaleString('pt-BR');
+  $('opRapidaAlertas').innerHTML = Number(S.kpis.alertas || 0) ? `<div class="item"><div><b>${esc(S.kpis.alertas)} alerta(s) de equipamento</b><br><small>Use Manutenção/Baixa/Relatórios para tratar.</small></div><span class="badge">Conferir</span></div>` : '<div class="msg show ok">Sem alerta crítico na visão rápida.</div>';
 }
 function validarCarrinho(){
   const tecnico = $('opRapidaTecnico')?.value || '', os = $('opRapidaOs')?.value.trim() || '', obs = $('opRapidaObs')?.value.trim() || '';
   if(!tecnico) throw new Error('Selecione o técnico.');
   if(!S.cartEq.length && !S.cartMat.length) throw new Error('Carrinho vazio.');
-  for(const id of S.cartEq){ const e = eqById(id); if(!e) throw new Error('Equipamento do carrinho não encontrado. Atualize os dados.'); if(!isEqDisponivel(e)) throw new Error(`Item indisponível: ${e.codigo || id} - ${e.status || '-'}.`); }
-  const materiais = S.cartMat.map(x => { const m = saldoById(x.id); if(!m) throw new Error('Material do carrinho não encontrado. Atualize os dados.'); if(!m.modelo_id) throw new Error(`Material sem modelo_id: ${nomeMat(m)}.`); if(!isMatCentral(m)) throw new Error(`Material não está no estoque central: ${nomeMat(m)}.`); if(Number(x.quantidade || 0) <= 0) throw new Error(`Quantidade inválida para ${nomeMat(m)}.`); if(Number(x.quantidade || 0) > Number(m.quantidade || 0)) throw new Error(`Saldo insuficiente para ${nomeMat(m)}. Disponível: ${qtd(m.quantidade)}.`); return { modelo_id: m.modelo_id, quantidade: x.quantidade }; });
+  for(const id of S.cartEq){ const e = eqById(id); if(!e) throw new Error('Equipamento do carrinho não encontrado. Pesquise novamente.'); if(!isEqDisponivel(e)) throw new Error(`Item indisponível: ${e.codigo || id} - ${e.status || '-'}.`); }
+  const materiais = S.cartMat.map(x => { const m = saldoById(x.id); if(!m) throw new Error('Material do carrinho não encontrado. Pesquise novamente.'); if(!m.modelo_id) throw new Error(`Material sem modelo_id: ${nomeMat(m)}.`); if(!isMatCentral(m)) throw new Error(`Material não está no estoque central: ${nomeMat(m)}.`); if(Number(x.quantidade || 0) <= 0) throw new Error(`Quantidade inválida para ${nomeMat(m)}.`); if(Number(x.quantidade || 0) > Number(m.quantidade || 0)) throw new Error(`Saldo insuficiente para ${nomeMat(m)}. Disponível: ${qtd(m.quantidade)}.`); return { modelo_id: m.modelo_id, quantidade: x.quantidade }; });
   return { tecnico, os, obs, materiais };
 }
 function snapshotFromPayload(payload, result=null){
   return {
-    protocolo: result?.client_operation_id || opId(),
-    gerado_em: nowBR(),
-    tecnico: payload.tecnico,
-    os: payload.os,
-    obs: payload.obs,
+    protocolo: result?.client_operation_id || opId(), gerado_em: nowBR(), tecnico: payload.tecnico, os: payload.os, obs: payload.obs,
     equipamentos: S.cartEq.map(id => eqById(id)).filter(Boolean).map(e => ({ codigo:e.codigo, nome:nomeEq(e), mac:e.mac, serial:e.serial, patrimonio:e.patrimonio, status:e.status })),
     materiais: S.cartMat.map(x => { const m = saldoById(x.id); return m ? { nome:nomeMat(m), categoria:m.categoria, unidade:m.unidade_saida, quantidade:x.quantidade, saldo_atual:m.quantidade } : null; }).filter(Boolean),
     result: result || null
@@ -215,10 +228,7 @@ function renderConferencia(payload){
 }
 function abrirConferencia(){ try{ const payload = validarCarrinho(); renderConferencia(payload); msg('opConferenciaMsg','Confira todos os itens antes de confirmar definitivamente.', 'warn'); $('opConferenciaModal')?.classList.add('open'); }catch(e){ msg('opRapidaCartMsg', e.message || String(e), 'bad'); } }
 function fecharConferencia(){ if(S.confirmando) return; $('opConferenciaModal')?.classList.remove('open'); }
-function buildPreviaWhatsApp(tecnico){
-  const snap = snapshotFromPayload({ tecnico: tecnico || $('opRapidaTecnico')?.value || '-', os: $('opRapidaOs')?.value.trim(), obs: $('opRapidaObs')?.value.trim() });
-  return buildComprovanteWhatsApp(snap, false);
-}
+function buildPreviaWhatsApp(tecnico){ const snap = snapshotFromPayload({ tecnico: tecnico || $('opRapidaTecnico')?.value || '-', os: $('opRapidaOs')?.value.trim(), obs: $('opRapidaObs')?.value.trim() }); return buildComprovanteWhatsApp(snap, false); }
 function buildComprovanteWhatsApp(snap, confirmado=true){
   const linhas = [];
   linhas.push(confirmado ? '✅ COMPROVANTE DE SAÍDA DE ESTOQUE' : '📦 PRÉVIA DE SAÍDA DE ESTOQUE');
@@ -227,20 +237,14 @@ function buildComprovanteWhatsApp(snap, confirmado=true){
   linhas.push('Técnico: ' + (snap.tecnico || '-'));
   linhas.push('OS/Ref: ' + (snap.os || 'Não informado'));
   if(snap.obs) linhas.push('Obs: ' + snap.obs);
-  linhas.push('');
-  linhas.push('EQUIPAMENTOS (' + snap.equipamentos.length + '):');
+  linhas.push(''); linhas.push('EQUIPAMENTOS (' + snap.equipamentos.length + '):');
   linhas.push(snap.equipamentos.map((e,i)=>`${i+1}. ${e.codigo || '-'} | ${e.nome || '-'} | MAC/SN: ${e.mac || e.serial || '-'}`).join('\n') || 'Sem equipamentos.');
-  linhas.push('');
-  linhas.push('MATERIAIS (' + snap.materiais.length + '):');
+  linhas.push(''); linhas.push('MATERIAIS (' + snap.materiais.length + '):');
   linhas.push(snap.materiais.map(m=>`- ${m.nome}: ${qtd(m.quantidade)} ${m.unidade || ''}`).join('\n') || 'Sem materiais.');
-  linhas.push('');
-  linhas.push(confirmado ? 'Recebi os itens acima e conferi as quantidades.' : 'Conferir antes de confirmar a saída definitiva.');
+  linhas.push(''); linhas.push(confirmado ? 'Recebi os itens acima e conferi as quantidades.' : 'Conferir antes de confirmar a saída definitiva.');
   return linhas.join('\n');
 }
-async function copiarTexto(texto, okMsg){
-  try{ await navigator.clipboard.writeText(texto); if(okMsg) msg('opRapidaCartMsg', okMsg, 'ok'); }
-  catch(e){ window.prompt('Copie o texto:', texto); }
-}
+async function copiarTexto(texto, okMsg){ try{ await navigator.clipboard.writeText(texto); if(okMsg) msg('opRapidaCartMsg', okMsg, 'ok'); } catch(e){ window.prompt('Copie o texto:', texto); } }
 async function copiarPreviaWhatsApp(show=false){ const texto = buildPreviaWhatsApp($('opRapidaTecnico')?.value || ''); await copiarTexto(texto, show ? 'Prévia copiada para WhatsApp.' : ''); }
 async function copiarUltimoComprovante(){ if(!S.ultimoComprovante) return msg('opRapidaCartMsg','Nenhum comprovante confirmado nesta sessão.', 'warn'); await copiarTexto(buildComprovanteWhatsApp(S.ultimoComprovante, true), 'Último comprovante copiado para WhatsApp.'); }
 function addPdfText(doc, text, x, y, maxWidth, lineHeight=5){ const lines = doc.splitTextToSize(String(text ?? '-'), maxWidth); for(const line of lines){ if(y > 282){ doc.addPage(); y = 16; } doc.text(line, x, y); y += lineHeight; } return y; }
@@ -255,40 +259,32 @@ function gerarPdfComprovante(snap){
   y = addPdfText(doc, `Protocolo: ${snap.protocolo || '-'} | Gerado em: ${snap.gerado_em || nowBR()}`, 12, y, 186, 5);
   y = addPdfText(doc, `Técnico: ${snap.tecnico || '-'} | OS/Ref: ${snap.os || 'Não informado'}`, 12, y, 186, 5);
   y = addPdfText(doc, `Observação: ${snap.obs || 'Sem observação'}`, 12, y, 186, 5);
-  y += 4;
-  doc.setDrawColor(210); doc.line(12, y, 198, y); y += 7;
+  y += 4; doc.setDrawColor(210); doc.line(12, y, 198, y); y += 7;
   doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text(`Equipamentos (${snap.equipamentos.length})`, 12, y); y += 7;
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  if(!snap.equipamentos.length){ y = addPdfText(doc, 'Sem equipamentos.', 12, y, 186); }
+  if(!snap.equipamentos.length) y = addPdfText(doc, 'Sem equipamentos.', 12, y, 186);
   snap.equipamentos.forEach((e,i)=>{ y = addPdfText(doc, `${i+1}. ${e.codigo || '-'} | ${e.nome || '-'} | MAC/SN: ${e.mac || e.serial || '-'} | Patrimônio: ${e.patrimonio || '-'}`, 12, y, 186, 5); });
-  y += 4;
-  doc.setFont('helvetica','bold'); doc.setFontSize(12); if(y > 272){ doc.addPage(); y = 16; } doc.text(`Materiais (${snap.materiais.length})`, 12, y); y += 7;
+  y += 4; doc.setFont('helvetica','bold'); doc.setFontSize(12); if(y > 272){ doc.addPage(); y = 16; } doc.text(`Materiais (${snap.materiais.length})`, 12, y); y += 7;
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  if(!snap.materiais.length){ y = addPdfText(doc, 'Sem materiais.', 12, y, 186); }
+  if(!snap.materiais.length) y = addPdfText(doc, 'Sem materiais.', 12, y, 186);
   snap.materiais.forEach((m,i)=>{ y = addPdfText(doc, `${i+1}. ${m.nome || '-'} | Quantidade: ${qtd(m.quantidade)} ${m.unidade || ''} | Categoria: ${m.categoria || '-'}`, 12, y, 186, 5); });
-  y += 12;
-  if(y > 250){ doc.addPage(); y = 30; }
+  y += 12; if(y > 250){ doc.addPage(); y = 30; }
   doc.setDrawColor(120); doc.line(20, y, 90, y); doc.line(120, y, 190, y); y += 5;
   doc.setFontSize(9); doc.text('Responsável pela entrega', 33, y); doc.text('Técnico / Recebedor', 137, y); y += 10;
   doc.setFontSize(8); doc.setTextColor(110); doc.text('Documento gerado pelo LIKE Estoque • Conferir antes de arquivar.', 12, 290); doc.text('Página 1', 198, 290, { align:'right' }); doc.setTextColor(0);
   const filename = `comprovante_saida_${safeFile(snap.tecnico)}_${todayFile()}.pdf`;
-  doc.save(filename);
-  return filename;
+  doc.save(filename); return filename;
 }
 async function executarConfirmacao(){
   const btn = $('opConferenciaExecutar'), btnAbrir = $('opRapidaConfirmar');
   if(S.confirmando) return;
-  S.confirmando = true;
-  if(btn){ btn.disabled = true; btn.textContent = 'Confirmando...'; }
-  if(btnAbrir) btnAbrir.disabled = true;
+  S.confirmando = true; if(btn){ btn.disabled = true; btn.textContent = 'Confirmando...'; } if(btnAbrir) btnAbrir.disabled = true;
   try{
     const payload = validarCarrinho();
     msg('opConferenciaMsg','Confirmando saída em lote via RPC...', 'warn');
     const result = await call('rpc_operacao_rapida_saida_lote', { p_equipamentos:S.cartEq, p_materiais:payload.materiais, p_tecnico:payload.tecnico, p_observacao:payload.obs, p_os:payload.os, p_client_operation_id:opId() });
-    const snap = snapshotFromPayload(payload, result);
-    S.ultimoComprovante = snap;
-    let pdfMsg = '';
-    try{ const file = gerarPdfComprovante(snap); pdfMsg = ` PDF gerado: ${file}.`; }catch(pdfErr){ pdfMsg = ` PDF não gerado: ${pdfErr.message}.`; }
+    const snap = snapshotFromPayload(payload, result); S.ultimoComprovante = snap;
+    let pdfMsg = ''; try{ const file = gerarPdfComprovante(snap); pdfMsg = ` PDF gerado: ${file}.`; }catch(pdfErr){ pdfMsg = ` PDF não gerado: ${pdfErr.message}.`; }
     await copiarTexto(buildComprovanteWhatsApp(snap, true), '');
     S.cartEq = []; S.cartMat = []; $('opRapidaOs').value = ''; $('opRapidaObs').value = ''; $('opConferenciaModal')?.classList.remove('open');
     await load();
@@ -297,15 +293,29 @@ async function executarConfirmacao(){
   finally{ S.confirmando = false; if(btn){ btn.disabled = false; btn.textContent = 'Confirmar definitivamente'; } if(btnAbrir) btnAbrir.disabled = false; }
 }
 function limparCarrinho(){ S.cartEq = []; S.cartMat = []; renderCart(); msg('opRapidaCartMsg','Carrinho limpo.', 'warn'); }
-function autoAddScan(){ const e = exactEq($('opRapidaBusca')?.value || ''); if(e){ addEq(e.id); $('opRapidaBusca').value = ''; pesquisar(); return; } msg('opRapidaMsg','Nenhum equipamento exato encontrado para adicionar automaticamente.', 'warn'); }
+async function autoAddScan(){
+  const q = $('opRapidaBusca')?.value || '';
+  if(!q.trim()) return;
+  clearTimeout(S.buscaTimer);
+  try{
+    await buscarBanco(q.trim());
+    const e = exactEq(q);
+    if(e){ addEq(e.id); $('opRapidaBusca').value = ''; $('opRapidaResultados').innerHTML = ''; msg('opRapidaMsg','Equipamento adicionado pelo bip.', 'ok'); return; }
+    msg('opRapidaMsg','Nenhum equipamento exato encontrado para adicionar automaticamente.', 'warn');
+  }catch(e){ msg('opRapidaMsg', e.message || String(e), 'bad'); }
+}
 async function abrirFluxo(tipo, id){
   const f = FLUXOS[tipo], nav = f ? $(f.nav) : null;
   if(!nav) return msg('opRapidaMsg', `Tela ${f?.label || tipo} não encontrada.`, 'bad');
   nav.click(); await sleep(250); if(typeof window[f.load] === 'function') await window[f.load](); await sleep(100);
-  const select = $(f.select); if(!select) return msg('opRapidaMsg', `Campo de seleção da tela ${f.label} não encontrado.`, 'bad');
-  select.value = id;
-  if(select.value !== id) return msg('opRapidaMsg', `O equipamento não apareceu na lista de ${f.label}. Verifique o status atual.`, 'bad');
-  select.dispatchEvent(new Event('change', { bubbles:true }));
+  if(f.asyncSelect && typeof window[f.asyncSelect] === 'function'){
+    const ok = await window[f.asyncSelect](id);
+    if(!ok) return msg('opRapidaMsg', `O equipamento não foi localizado em ${f.label}.`, 'bad');
+  }else{
+    const select = $(f.select); if(!select) return msg('opRapidaMsg', `Campo de seleção da tela ${f.label} não encontrado.`, 'bad');
+    select.value = id; if(select.value !== id) return msg('opRapidaMsg', `O equipamento não apareceu na lista de ${f.label}. Verifique o status atual.`, 'bad');
+    select.dispatchEvent(new Event('change', { bubbles:true }));
+  }
   if(f.form) $(f.form)?.dispatchEvent(new Event('submit', { bubbles:true, cancelable:true }));
 }
 document.addEventListener('click', async (ev) => {
