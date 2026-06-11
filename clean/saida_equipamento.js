@@ -1,13 +1,24 @@
-import { table, call, first } from './api.js?v=3';
+import { table, call, first } from './api.js?v=5';
 import { openMovimentacaoModal } from './movimentacao_modal.js?v=1';
 
-const S = { equipamentos: [], tecnicos: [], locais: [], selecionado: null, ultimoComprovante: null };
-const $ = (id) => document.getElementById(id);
-const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const S = {
+  equipamentos: [],
+  tecnicos: [],
+  locais: [],
+  selecionado: null,
+  ultimoComprovante: null,
+  total: 0,
+  busca: '',
+  timer: null,
+  carregando: false
+};
+
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const opId = () => globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8); return v.toString(16); });
-const ativo = (x) => x && x.ativo !== false;
-const norm = (v) => String(v || '').trim();
-const safeFile = (v) => String(v || 'saida').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'saida';
+const ativo = x => x && x.ativo !== false;
+const norm = v => String(v || '').trim();
+const safeFile = v => String(v || 'saida').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'saida';
 let bound = false;
 
 function msg(text, type=''){
@@ -16,17 +27,18 @@ function msg(text, type=''){
   el.textContent = text;
   el.className = 'msg show ' + type;
 }
+
 function nomeEq(e){ return [e?.tipo,e?.marca,e?.modelo].filter(Boolean).join(' ') || e?.codigo || '-'; }
 function identificacao(e){ return [e.codigo, e.mac, e.serial, nomeEq(e)].filter(Boolean).join(' • '); }
 function nowBR(){ return new Date().toLocaleString('pt-BR'); }
 function todayFile(){ return new Date().toISOString().slice(0,10); }
+
 function isDisponivel(e){
-  const status = String(e.status || '').toLowerCase();
-  const blocked = ['inutilizado','perdido','baixado','manutenção','em manutenção','em manutencao','com técnico','com tecnico','instalado cliente','instalado no cliente','na rua'];
+  const status = String(e?.status || '').toLowerCase();
   if(!ativo(e)) return false;
-  if(blocked.includes(status)) return false;
   return status === 'em estoque' || status === 'reservado' || !status;
 }
+
 function destinoPadrao(tipo){
   if(tipo === 'Enviar para técnico') return 'Backup técnico';
   if(tipo === 'Instalação cliente') return $('saidaCliente')?.value || 'Cliente final';
@@ -56,7 +68,7 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Saída de equipamento</h2>
-            <p>Movimenta equipamento disponível via RPC e gera comprovante PDF/WhatsApp da saída.</p>
+            <p>Busca equipamentos disponíveis direto no banco. Preparado para base grande sem carregar todos os equipamentos.</p>
           </div>
           <button id="saidaReload" class="secondary">Recarregar dados</button>
         </div>
@@ -66,7 +78,7 @@ function inject(){
       <div class="grid two">
         <form id="saidaForm" class="card form-card">
           <h2>Dados da saída</h2>
-          <input id="saidaBuscaEquipamento" placeholder="Buscar equipamento por código, MAC, SN, modelo ou local">
+          <input id="saidaBuscaEquipamento" placeholder="Buscar equipamento por código, MAC, SN ou modelo">
           <select id="saidaEquipamento"></select>
           <div class="form-grid two">
             <select id="saidaTipo">
@@ -97,14 +109,16 @@ function inject(){
         <div class="card">
           <h2>Resumo antes de confirmar</h2>
           <div id="saidaPreview" class="list"></div>
-          <div id="saidaRegra" class="msg show warn">Selecione um equipamento disponível.</div>
+          <div id="saidaRegra" class="msg show warn">Pesquise e selecione um equipamento disponível.</div>
         </div>
       </div>
 
       <div class="card">
         <div class="table-head">
-          <h2>Equipamentos disponíveis para saída</h2>
-          <input id="saidaFiltroTabela" placeholder="Filtrar lista">
+          <div>
+            <h2>Equipamentos disponíveis para saída</h2>
+            <p id="saidaTotalInfo">Mostrando até 80 equipamentos.</p>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
@@ -122,19 +136,21 @@ function inject(){
   $('saidaForm').onsubmit = abrirConfirmacao;
   $('saidaLimpar').onclick = limparForm;
   $('saidaUltimoComprovante').onclick = copiarUltimoComprovante;
-  $('saidaBuscaEquipamento').oninput = renderEquipSelect;
+  $('saidaBuscaEquipamento').oninput = () => {
+    S.busca = $('saidaBuscaEquipamento').value || '';
+    clearTimeout(S.timer);
+    S.timer = setTimeout(() => carregarEquipamentosDisponiveis().catch(e=>msg(e.message,'bad')), 350);
+  };
   $('saidaEquipamento').onchange = () => { S.selecionado = equipamentoSelecionado(); renderPreview(); };
   $('saidaTipo').onchange = () => { ajustarCamposPorTipo(); renderPreview(); };
   $('saidaTecnico').onchange = () => { ajustarDestino(); renderPreview(); };
-  ['saidaCliente','saidaOs','saidaMotivo','saidaObs','saidaFiltroTabela'].forEach(id=>{
-    const el=$(id); if(el) el.addEventListener('input',()=>{ if(id==='saidaFiltroTabela') renderTabela(); else { ajustarDestino(false); renderPreview(); } });
+  ['saidaCliente','saidaOs','saidaMotivo','saidaObs'].forEach(id=>{
+    const el=$(id); if(el) el.addEventListener('input',()=>{ ajustarDestino(false); renderPreview(); });
   });
   document.addEventListener('click', ev => {
     const btn = ev.target.closest('[data-saida-eq]');
     if(!btn) return;
-    $('saidaEquipamento').value = btn.dataset.saidaEq;
-    S.selecionado = equipamentoSelecionado();
-    renderPreview();
+    selecionarEquipamentoId(btn.dataset.saidaEq);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 }
@@ -149,27 +165,55 @@ function showPage(){
 }
 
 async function loadSaida(){
-  msg('Carregando equipamentos disponíveis...', 'warn');
-  S.equipamentos = await table('equipamentos','created_at',false);
+  msg('Carregando dados da saída...', 'warn');
   S.tecnicos = await table('tecnicos','nome',true);
   S.locais = await table('locais','nome',true);
   fillTecnicos();
   ajustarDestino();
-  renderEquipSelect();
-  renderTabela();
+  await carregarEquipamentosDisponiveis();
   renderPreview();
   msg('Saída pronta para uso.', 'ok');
+}
+
+async function carregarEquipamentosDisponiveis(){
+  if(S.carregando) return;
+  S.carregando = true;
+  try{
+    const res = await call('rpc_pesquisar_equipamentos_7a5', {
+      p_busca: S.busca || '',
+      p_status_filtro: 'estoque',
+      p_limit: 80,
+      p_offset: 0
+    });
+    const atuais = res.items || [];
+    if(S.selecionado && !atuais.some(e => e.id === S.selecionado.id)) atuais.unshift(S.selecionado);
+    S.equipamentos = atuais.filter(isDisponivel);
+    S.total = Number(res.total || 0);
+    renderEquipSelect();
+    renderTabela();
+  }finally{
+    S.carregando = false;
+  }
 }
 
 function fillTecnicos(){
   const tecnicos = S.tecnicos.filter(ativo);
   $('saidaTecnico').innerHTML = '<option value="">Selecionar técnico</option>' + tecnicos.map(t=>`<option value="${esc(t.nome)}">${esc(t.nome)}</option>`).join('');
 }
-function equipamentosDisponiveis(){ return S.equipamentos.filter(isDisponivel); }
-function equipamentoSelecionado(){ return S.equipamentos.find(e=>e.id===$('saidaEquipamento')?.value); }
+
+function equipamentoSelecionado(){ return S.equipamentos.find(e=>e.id===$('saidaEquipamento')?.value) || S.selecionado; }
+
+function selecionarEquipamentoId(id){
+  const eq = S.equipamentos.find(e => e.id === id);
+  if(!eq) return;
+  S.selecionado = eq;
+  renderEquipSelect();
+  $('saidaEquipamento').value = id;
+  renderPreview();
+}
+
 function renderEquipSelect(){
-  const filtro = ($('saidaBuscaEquipamento')?.value || '').toLowerCase();
-  const rows = equipamentosDisponiveis().filter(e => !filtro || JSON.stringify(e).toLowerCase().includes(filtro)).slice(0,200);
+  const rows = S.equipamentos.slice(0,80);
   $('saidaEquipamento').innerHTML = '<option value="">Selecionar equipamento disponível</option>' + rows.map(e=>`<option value="${e.id}">${esc(identificacao(e))}</option>`).join('');
   if(S.selecionado && rows.some(e=>e.id===S.selecionado.id)) $('saidaEquipamento').value = S.selecionado.id;
 }
@@ -235,7 +279,7 @@ function renderPreview(){
   let p;
   try{ p = payload(); }
   catch(e){ $('saidaPreview').innerHTML = `<div class="item"><b>Pendente</b><small>${esc(e.message)}</small></div>`; $('saidaRegra').textContent = e.message; return; }
-  $('saidaRegra').textContent = 'Revise os dados antes de confirmar a saída. O destino/local é padronizado pelo sistema para evitar divergência de auditoria.';
+  $('saidaRegra').textContent = 'Revise os dados antes de confirmar a saída.';
   $('saidaPreview').innerHTML = resumoHtml(p);
 }
 
@@ -265,15 +309,7 @@ function snapshot(p, result, protocolo){
     motivo: p.motivo,
     obs: p.obs,
     status_final: result?.status || result?.status_final || 'Atualizado',
-    equipamento: {
-      codigo: result?.codigo || p.eq.codigo,
-      patrimonio: result?.patrimonio || p.eq.patrimonio,
-      mac: result?.mac || p.eq.mac,
-      serial: result?.serial || p.eq.serial,
-      tipo: result?.tipo || p.eq.tipo,
-      marca: result?.marca || p.eq.marca,
-      modelo: result?.modelo || p.eq.modelo
-    }
+    equipamento: { codigo: result?.codigo || p.eq.codigo, patrimonio: result?.patrimonio || p.eq.patrimonio, mac: result?.mac || p.eq.mac, serial: result?.serial || p.eq.serial, tipo: result?.tipo || p.eq.tipo, marca: result?.marca || p.eq.marca, modelo: result?.modelo || p.eq.modelo }
   };
 }
 function textoComprovante(s){
@@ -297,12 +333,8 @@ function textoComprovante(s){
   return linhas.join('\n');
 }
 async function copiarTexto(texto, okMsg){
-  try{
-    await navigator.clipboard.writeText(texto);
-    if(okMsg) msg(okMsg, 'ok');
-  }catch(e){
-    window.prompt('Copie o comprovante:', texto);
-  }
+  try{ await navigator.clipboard.writeText(texto); if(okMsg) msg(okMsg, 'ok'); }
+  catch(e){ msg('Não foi possível copiar automaticamente. O comprovante foi gerado.', 'warn'); }
 }
 async function copiarUltimoComprovante(){
   if(!S.ultimoComprovante) return msg('Nenhum comprovante gerado nesta sessão.', 'warn');
@@ -310,10 +342,7 @@ async function copiarUltimoComprovante(){
 }
 function addPdfText(doc, text, x, y, maxWidth, lineHeight=5){
   const lines = doc.splitTextToSize(String(text ?? '-'), maxWidth);
-  for(const line of lines){
-    if(y > 282){ doc.addPage(); y = 16; }
-    doc.text(line, x, y); y += lineHeight;
-  }
+  for(const line of lines){ if(y > 282){ doc.addPage(); y = 16; } doc.text(line, x, y); y += lineHeight; }
   return y;
 }
 function gerarPdf(s){
@@ -348,27 +377,11 @@ async function confirmarSaida(p){
   try{
     msg('Registrando saída via RPC...', 'warn');
     const protocolo = opId();
-    const result = first(await call('rpc_registrar_saida_equipamento', {
-      p_equipamento_id: p.eq.id,
-      p_mov_tipo: p.tipo,
-      p_tecnico: p.tecnico,
-      p_destino: p.destino,
-      p_cliente: p.cliente,
-      p_os: p.os,
-      p_motivo: p.motivo,
-      p_observacao: p.obs,
-      p_client_operation_id: protocolo
-    }));
-
+    const result = first(await call('rpc_registrar_saida_equipamento', { p_equipamento_id:p.eq.id, p_mov_tipo:p.tipo, p_tecnico:p.tecnico, p_destino:p.destino, p_cliente:p.cliente, p_os:p.os, p_motivo:p.motivo, p_observacao:p.obs, p_client_operation_id:protocolo }));
     const comp = snapshot(p, result, protocolo);
     S.ultimoComprovante = comp;
     let pdfMsg = '';
-    try{
-      const file = gerarPdf(comp);
-      pdfMsg = ` PDF gerado: ${file}.`;
-    }catch(pdfErr){
-      pdfMsg = ` PDF não gerado: ${pdfErr.message}.`;
-    }
+    try{ pdfMsg = ` PDF gerado: ${gerarPdf(comp)}.`; }catch(pdfErr){ pdfMsg = ` PDF não gerado: ${pdfErr.message}.`; }
     await copiarTexto(textoComprovante(comp), '');
     msg(`Saída registrada. Status: ${result?.status || 'atualizado'}. Local: ${result?.local || p.destino}. Comprovante WhatsApp copiado.${pdfMsg}`, 'ok');
     limparForm(false);
@@ -380,15 +393,16 @@ function limparForm(show=true){
   ['saidaBuscaEquipamento','saidaEquipamento','saidaTecnico','saidaCliente','saidaOs','saidaDestino','saidaMotivo','saidaObs'].forEach(id=>{ if($(id)) $(id).value=''; });
   if($('saidaTipo')) $('saidaTipo').value='Enviar para técnico';
   S.selecionado = null;
+  S.busca = '';
   ajustarDestino();
   renderEquipSelect();
   renderPreview();
   if(show) msg('Formulário limpo.', 'ok');
 }
+
 function renderTabela(){
-  const filtro = ($('saidaFiltroTabela')?.value || '').toLowerCase();
-  const rows = equipamentosDisponiveis().filter(e => !filtro || JSON.stringify(e).toLowerCase().includes(filtro)).slice(0,80);
-  $('saidaTbody').innerHTML = rows.map(e=>`
+  if($('saidaTotalInfo')) $('saidaTotalInfo').textContent = `Mostrando ${S.equipamentos.length} de ${S.total} disponíveis. Use a busca para localizar outros.`;
+  $('saidaTbody').innerHTML = S.equipamentos.map(e=>`
     <tr>
       <td><b>${esc(e.codigo || '-')}</b></td>
       <td>${esc(nomeEq(e))}</td>
@@ -401,3 +415,19 @@ function renderTabela(){
 
 inject();
 window.saidaCleanLoad = loadSaida;
+window.saidaCleanSelectById = async function(id){
+  if(!id) return false;
+  const atual = S.equipamentos.find(e => e.id === id);
+  if(atual){ selecionarEquipamentoId(id); return true; }
+  const res = await call('rpc_pesquisar_equipamentos_7a5', { p_busca: id, p_status_filtro:'todos', p_limit:10, p_offset:0 });
+  const eq = (res.items || []).find(e => e.id === id);
+  if(eq){
+    S.selecionado = eq;
+    if(!S.equipamentos.some(e => e.id === id)) S.equipamentos.unshift(eq);
+    renderEquipSelect();
+    $('saidaEquipamento').value = id;
+    renderPreview();
+    return true;
+  }
+  return false;
+};
