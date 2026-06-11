@@ -1,12 +1,13 @@
-import { table, call, first } from './api.js?v=3';
+import { table, call, first } from './api.js?v=5';
 import { openMovimentacaoModal } from './movimentacao_modal.js?v=1';
 
-const S = { equipamentos: [], tecnicos: [], locais: [], selecionado: null };
+const S = { equipamentos: [], tecnicos: [], locais: [], selecionado: null, total: 0, busca: '', timer: null, carregando: false };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const opId = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2);
 const ativo = (x) => x && x.ativo !== false;
 const norm = (v) => String(v || '').trim();
+const normalizar = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 let bound = false;
 
 const ACOES = [
@@ -14,7 +15,7 @@ const ACOES = [
   { value:'Manter em manutenção', label:'Manter em manutenção', destino:'Manutenção', badge:'Manutenção' },
   { value:'Marcar defeituoso', label:'Marcar defeituoso', destino:'Manutenção', badge:'Defeituoso' },
   { value:'Enviar para garantia', label:'Enviar para garantia', destino:'Garantia', badge:'Garantia' },
-  { value:'Preparar para inutilização', label:'Preparar para baixa', destino:'Manutenção', badge:'Aguardando baixa', danger:true }
+  { value:'Preparar para inutiliza\u00e7\u00e3o', label:'Preparar para baixa', destino:'Manutenção', badge:'Aguardando baixa', danger:true }
 ];
 
 function msg(text, type=''){
@@ -25,13 +26,13 @@ function msg(text, type=''){
 }
 function nomeEq(e){ return [e.tipo,e.marca,e.modelo].filter(Boolean).join(' '); }
 function identificacao(e){ return [e.codigo, e.mac, e.serial, nomeEq(e)].filter(Boolean).join(' • '); }
-function statusLower(e){ return String(e.status || '').toLowerCase(); }
-function localLower(e){ return String(e.local || '').toLowerCase(); }
+function statusLower(e){ return normalizar(e.status); }
+function localLower(e){ return normalizar(e.local); }
 function isElegivelManutencao(e){
   if(!ativo(e)) return false;
   const s = statusLower(e);
   const l = localLower(e);
-  return ['manutenção','em manutenção','em manutencao','defeituoso','testar','garantia','aguardando baixa'].includes(s) || l.includes('manutenção') || l.includes('garantia');
+  return ['manutencao','em manutencao','defeituoso','testar','garantia','aguardando baixa'].includes(s) || l.includes('manutencao') || l.includes('garantia');
 }
 function acaoSelecionada(){ return ACOES.find(a => a.value === $('manutencaoAcao')?.value) || ACOES[1]; }
 
@@ -55,7 +56,7 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Manutenção e teste</h2>
-            <p>Registre diagnóstico e decisão técnica de equipamentos em teste, manutenção, defeito ou garantia.</p>
+            <p>Registre diagnóstico e decisão técnica de equipamentos em teste, manutenção, defeito ou garantia. A busca da fila é feita no banco.</p>
           </div>
           <button id="manutencaoReload" class="secondary">Recarregar dados</button>
         </div>
@@ -92,8 +93,10 @@ function inject(){
 
       <div class="card">
         <div class="table-head">
-          <h2>Fila de manutenção/teste</h2>
-          <input id="manutencaoFiltroTabela" placeholder="Filtrar lista">
+          <div>
+            <h2>Fila de manutenção/teste</h2>
+            <p id="manutencaoTotalInfo">Mostrando até 80 equipamentos.</p>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
@@ -110,18 +113,21 @@ function inject(){
   $('manutencaoReload').onclick = () => loadManutencao().catch(e=>msg(e.message,'bad'));
   $('manutencaoForm').onsubmit = abrirConfirmacao;
   $('manutencaoLimpar').onclick = limparForm;
-  $('manutencaoBuscaEquipamento').oninput = renderEquipSelect;
+  $('manutencaoBuscaEquipamento').oninput = () => {
+    S.busca = $('manutencaoBuscaEquipamento')?.value || '';
+    clearTimeout(S.timer);
+    S.timer = setTimeout(() => carregarEquipamentosManutencao().catch(e=>msg(e.message,'bad')), 350);
+  };
   $('manutencaoEquipamento').onchange = selecionarEquipamento;
   $('manutencaoAcao').onchange = () => { ajustarDestinoPorAcao(); renderPreview(); };
-  ['manutencaoResponsavel','manutencaoDestino','manutencaoOs','manutencaoDiagnostico','manutencaoObs','manutencaoFiltroTabela'].forEach(id=>{
+  ['manutencaoResponsavel','manutencaoDestino','manutencaoOs','manutencaoDiagnostico','manutencaoObs'].forEach(id=>{
     const el = $(id);
-    if(el) el.addEventListener('input', () => { if(id === 'manutencaoFiltroTabela') renderTabela(); else renderPreview(); });
+    if(el) el.addEventListener('input', renderPreview);
   });
   document.addEventListener('click', ev => {
     const btn = ev.target.closest('[data-manutencao-eq]');
     if(!btn) return;
-    $('manutencaoEquipamento').value = btn.dataset.manutencaoEq;
-    selecionarEquipamento();
+    selecionarEquipamentoId(btn.dataset.manutencaoEq);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 }
@@ -137,16 +143,35 @@ function showPage(){
 
 async function loadManutencao(){
   msg('Carregando fila de manutenção...', 'warn');
-  S.equipamentos = await table('equipamentos','created_at',false);
   S.tecnicos = await table('tecnicos','nome',true);
   S.locais = await table('locais','nome',true);
   fillAcoes();
   fillResponsaveis();
   fillDestinos();
-  renderEquipSelect();
-  renderTabela();
+  await carregarEquipamentosManutencao();
   renderPreview();
   msg('Tela de manutenção pronta para uso.', 'ok');
+}
+
+async function carregarEquipamentosManutencao(){
+  if(S.carregando) return;
+  S.carregando = true;
+  try{
+    const res = await call('rpc_pesquisar_equipamentos_7a5', {
+      p_busca: S.busca || '',
+      p_status_filtro: 'manutencao',
+      p_limit: 80,
+      p_offset: 0
+    });
+    const atuais = res.items || [];
+    if(S.selecionado && !atuais.some(e=>e.id===S.selecionado.id)) atuais.unshift(S.selecionado);
+    S.equipamentos = atuais.filter(isElegivelManutencao);
+    S.total = Number(res.total || 0);
+    renderEquipSelect();
+    renderTabela();
+  }finally{
+    S.carregando = false;
+  }
 }
 
 function fillAcoes(){
@@ -164,10 +189,17 @@ function fillDestinos(){
   ajustarDestinoPorAcao(false);
 }
 function equipamentosElegiveis(){ return S.equipamentos.filter(isElegivelManutencao); }
-function equipamentoSelecionado(){ return S.equipamentos.find(e=>e.id === $('manutencaoEquipamento')?.value); }
+function equipamentoSelecionado(){ return S.equipamentos.find(e=>e.id === $('manutencaoEquipamento')?.value) || S.selecionado; }
+function selecionarEquipamentoId(id){
+  const eq = S.equipamentos.find(e=>e.id === id);
+  if(!eq) return;
+  S.selecionado = eq;
+  renderEquipSelect();
+  $('manutencaoEquipamento').value = id;
+  selecionarEquipamento();
+}
 function renderEquipSelect(){
-  const filtro = ($('manutencaoBuscaEquipamento')?.value || '').toLowerCase();
-  const rows = equipamentosElegiveis().filter(e => !filtro || JSON.stringify(e).toLowerCase().includes(filtro)).slice(0,200);
+  const rows = equipamentosElegiveis().slice(0,80);
   $('manutencaoEquipamento').innerHTML = '<option value="">Selecionar equipamento em manutenção/teste</option>' + rows.map(e=>`<option value="${e.id}">${esc(identificacao(e))}</option>`).join('');
   if(S.selecionado && rows.some(e=>e.id === S.selecionado.id)) $('manutencaoEquipamento').value = S.selecionado.id;
 }
@@ -258,14 +290,14 @@ function limparForm(show=true){
   if($('manutencaoAcao')) $('manutencaoAcao').value = 'Manter em manutenção';
   ajustarDestinoPorAcao(false);
   S.selecionado = null;
+  S.busca = '';
   renderEquipSelect();
   renderPreview();
   if(show) msg('Formulário limpo.', 'ok');
 }
 function renderTabela(){
-  const filtro = ($('manutencaoFiltroTabela')?.value || '').toLowerCase();
-  const rows = equipamentosElegiveis().filter(e => !filtro || JSON.stringify(e).toLowerCase().includes(filtro)).slice(0,100);
-  $('manutencaoTbody').innerHTML = rows.map(e=>`
+  if($('manutencaoTotalInfo')) $('manutencaoTotalInfo').textContent = `Mostrando ${S.equipamentos.length} de ${S.total} em manutenção/teste. Use a busca para localizar outros.`;
+  $('manutencaoTbody').innerHTML = equipamentosElegiveis().map(e=>`
     <tr>
       <td><b>${esc(e.codigo || '-')}</b></td>
       <td>${esc(nomeEq(e))}</td>
@@ -279,3 +311,16 @@ function renderTabela(){
 
 inject();
 window.manutencaoCleanLoad = loadManutencao;
+window.manutencaoCleanSelectById = async function(id){
+  if(!id) return false;
+  if(S.equipamentos.some(e=>e.id===id)){ selecionarEquipamentoId(id); return true; }
+  const res = await call('rpc_pesquisar_equipamentos_7a5', { p_busca:id, p_status_filtro:'todos', p_limit:10, p_offset:0 });
+  const eq = (res.items || []).find(e=>e.id===id);
+  if(!eq) return false;
+  S.selecionado = eq;
+  if(!S.equipamentos.some(e=>e.id===id)) S.equipamentos.unshift(eq);
+  renderEquipSelect();
+  $('manutencaoEquipamento').value = id;
+  selecionarEquipamento();
+  return true;
+};
