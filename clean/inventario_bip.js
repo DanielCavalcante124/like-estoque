@@ -77,7 +77,7 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Inventário por bipagem</h2>
-            <p>Conte o estoque completo ou faça inventário parcial por tipo, marca e modelo sem fechar o estoque inteiro.</p>
+            <p>Conte o estoque completo ou faça inventário parcial somente dos equipamentos físicos existentes no local.</p>
           </div>
           <button id="invReload" class="secondary">Recarregar</button>
         </div>
@@ -90,17 +90,17 @@ function inject(){
         <div>
           <form id="invAbrirForm" class="card form-card">
             <h2>Abrir inventário</h2>
-            <input id="invTitulo" placeholder="Ex: Inventário parcial ONT Huawei - Estoque central">
+            <input id="invTitulo" placeholder="Ex: Inventário parcial ONT ZTE - Estoque central">
             <select id="invLocal"></select>
 
             <div class="inv-scope-box">
               <label><b>Tipo de inventário</b></label>
               <select id="invEscopo">
                 <option value="completo">Inventário completo do local</option>
-                <option value="tipo">Inventário por tipo</option>
+                <option value="tipo">Inventário por tipo de equipamento</option>
                 <option value="modelo">Inventário por marca e modelo específico</option>
               </select>
-              <small>Use inventário parcial para contar uma família ou um modelo sem parar todo o estoque.</small>
+              <small>As opções abaixo são filtradas pelo que realmente existe como equipamento físico no local escolhido.</small>
             </div>
 
             <div id="invFiltrosParciais" class="form-grid two" style="display:none">
@@ -171,7 +171,7 @@ function bind(){
   $('invBip').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); bipar(); } });
   $('invFinalizar').onclick = finalizar;
   $('invEscopo').onchange = renderFiltrosEscopo;
-  $('invLocal').onchange = renderEscopoPreview;
+  $('invLocal').onchange = () => { renderTiposPorLocal(); renderEscopoPreview(); };
   $('invTipo').onchange = () => { renderMarcasPorTipo(); renderEscopoPreview(); };
   $('invMarca').onchange = () => { renderModelosPorMarca(); renderEscopoPreview(); };
   $('invModelo').onchange = renderEscopoPreview;
@@ -192,8 +192,8 @@ async function show(){
 async function loadAll(){
   msg('Carregando inventário...', 'warn');
   await loadLocais();
-  await loadModelos();
   await loadEquipamentos();
+  await loadModelos();
   await loadInventarios();
   if(S.ativo) await loadResumo(S.ativo.id);
   renderEscopoPreview();
@@ -207,9 +207,7 @@ async function loadLocais(){
 
 async function loadModelos(){
   S.modelos = (await table('modelos','tipo',true)).filter(m => m.ativo !== false && m.tipo);
-  const tipos = [...new Set(S.modelos.map(m => m.tipo).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR'));
-  $('invTipo').innerHTML = '<option value="">Selecione o tipo</option>' + tipos.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
-  renderFiltrosEscopo();
+  renderTiposPorLocal();
 }
 
 async function loadEquipamentos(){
@@ -223,6 +221,21 @@ async function loadInventarios(){
   renderLista();
 }
 
+function equipamentosDoLocal(){
+  const local = $('invLocal')?.value || '';
+  return (S.equipamentos || []).filter(e => e.ativo !== false && norm(e.local) === norm(local));
+}
+
+function uniqueSorted(rows, field){
+  return [...new Set(rows.map(r => r?.[field]).filter(Boolean))].sort((a,b) => String(a).localeCompare(String(b),'pt-BR'));
+}
+
+function setSelectOptions(select, placeholder, values, current){
+  const exists = current && values.some(v => String(v) === String(current));
+  select.innerHTML = `<option value="">${esc(values.length ? placeholder : 'Nenhuma opção com equipamento neste local')}</option>` + values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  select.value = exists ? current : '';
+}
+
 function renderFiltrosEscopo(){
   const escopo = $('invEscopo')?.value || 'completo';
   const box = $('invFiltrosParciais');
@@ -234,31 +247,33 @@ function renderFiltrosEscopo(){
     $('invMarca').value = '';
     $('invModelo').value = '';
   }
-  renderMarcasPorTipo();
+  renderTiposPorLocal();
   renderEscopoPreview();
+}
+
+function renderTiposPorLocal(){
+  const atual = $('invTipo')?.value || '';
+  const tipos = uniqueSorted(equipamentosDoLocal(), 'tipo');
+  setSelectOptions($('invTipo'), 'Selecione o tipo', tipos, atual);
+  renderMarcasPorTipo();
 }
 
 function renderMarcasPorTipo(){
   const tipo = $('invTipo')?.value || '';
-  const marcas = [...new Set(S.modelos.filter(m => !tipo || m.tipo === tipo).map(m => m.marca).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR'));
-  $('invMarca').innerHTML = '<option value="">Selecione a marca</option>' + marcas.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  const atual = $('invMarca')?.value || '';
+  const base = equipamentosDoLocal().filter(e => !tipo || norm(e.tipo) === norm(tipo));
+  const marcas = uniqueSorted(base, 'marca');
+  setSelectOptions($('invMarca'), 'Selecione a marca', marcas, atual);
   renderModelosPorMarca();
 }
 
 function renderModelosPorMarca(){
   const tipo = $('invTipo')?.value || '';
   const marca = $('invMarca')?.value || '';
-  const rows = S.modelos
-    .filter(m => (!tipo || m.tipo === tipo) && (!marca || m.marca === marca))
-    .sort((a,b) => `${a.modelo}`.localeCompare(`${b.modelo}`,'pt-BR'));
-  $('invModelo').innerHTML = '<option value="">Selecione o modelo</option>' + rows.map(m => `<option value="${esc(m.modelo || '')}">${esc(m.modelo || '-')}</option>`).join('');
-}
-
-function modeloSelecionado(){
-  const tipo = $('invTipo')?.value || '';
-  const marca = $('invMarca')?.value || '';
-  const modelo = $('invModelo')?.value || '';
-  return S.modelos.find(m => m.tipo === tipo && m.marca === marca && m.modelo === modelo) || null;
+  const atual = $('invModelo')?.value || '';
+  const base = equipamentosDoLocal().filter(e => (!tipo || norm(e.tipo) === norm(tipo)) && (!marca || norm(e.marca) === norm(marca)));
+  const modelos = uniqueSorted(base, 'modelo');
+  setSelectOptions($('invModelo'), 'Selecione o modelo', modelos, atual);
 }
 
 function escopoAtual(){
@@ -278,8 +293,7 @@ function equipamentoNoEscopo(e){
 }
 
 function equipamentosEsperados(){
-  const local = $('invLocal')?.value || '';
-  return (S.equipamentos || []).filter(e => e.ativo !== false && norm(e.local) === norm(local) && equipamentoNoEscopo(e));
+  return equipamentosDoLocal().filter(equipamentoNoEscopo);
 }
 
 function renderEscopoPreview(){
@@ -292,23 +306,26 @@ function renderEscopoPreview(){
 
   if(s.escopo === 'completo'){
     const total = equipamentosEsperados().length;
-    html = `<b>Inventário completo do local</b>Local: ${esc(local)}<br>Equipamentos esperados neste local: <b>${total}</b>`;
+    if(total <= 0) cls += ' warn';
+    html = `<b>Inventário completo do local</b>Local: ${esc(local)}<br>Equipamentos físicos esperados neste local: <b>${total}</b>`;
   }else if(s.escopo === 'tipo'){
     if(!s.tipo){
       cls += ' warn';
-      html = '<b>Inventário por tipo</b>Selecione o tipo que será contado.';
+      html = '<b>Inventário por tipo</b>Selecione o tipo que será contado. A lista mostra somente tipos com equipamento físico neste local.';
     }else{
       const total = equipamentosEsperados().length;
-      const modelos = [...new Set(S.modelos.filter(m => m.tipo === s.tipo).map(m => `${m.marca || '-'} ${m.modelo || '-'}`))].slice(0,8);
-      html = `<b>Inventário por tipo</b>Tipo: ${esc(s.tipo)}<br>Local: ${esc(local)}<br>Equipamentos esperados neste local: <b>${total}</b><br>Modelos ativos desse tipo: ${esc(modelos.join(' • ') || '-')}`;
+      if(total <= 0) cls += ' bad';
+      const modelos = [...new Set(equipamentosDoLocal().filter(e => norm(e.tipo) === norm(s.tipo)).map(e => `${e.marca || '-'} ${e.modelo || '-'}`))].slice(0,8);
+      html = `<b>Inventário por tipo</b>Tipo: ${esc(s.tipo)}<br>Local: ${esc(local)}<br>Equipamentos físicos esperados neste local: <b>${total}</b><br>Modelos encontrados neste local: ${esc(modelos.join(' • ') || '-')}`;
     }
   }else{
     if(!s.tipo || !s.marca || !s.modelo){
       cls += ' warn';
-      html = '<b>Inventário por marca e modelo</b>Selecione tipo, marca e modelo do equipamento que será contado.';
+      html = '<b>Inventário por marca e modelo</b>Selecione tipo, marca e modelo. As listas mostram somente equipamentos físicos existentes no local.';
     }else{
       const total = equipamentosEsperados().length;
-      html = `<b>Inventário por marca e modelo</b>Tipo: ${esc(s.tipo)}<br>Marca: ${esc(s.marca)}<br>Modelo: ${esc(s.modelo)}<br>Local: ${esc(local)}<br>Equipamentos esperados neste local: <b>${total}</b>`;
+      if(total <= 0) cls += ' bad';
+      html = `<b>Inventário por marca e modelo</b>Tipo: ${esc(s.tipo)}<br>Marca: ${esc(s.marca)}<br>Modelo: ${esc(s.modelo)}<br>Local: ${esc(local)}<br>Equipamentos físicos esperados neste local: <b>${total}</b>`;
     }
   }
   box.className = cls;
@@ -392,11 +409,13 @@ async function abrir(ev){
     const tipo = $('invTipo').value || null;
     const marca = $('invMarca').value || null;
     const modelo = $('invModelo').value || null;
+    const esperados = equipamentosEsperados().length;
 
     if(!titulo) throw new Error('Informe o título.');
     if(!local) throw new Error('Selecione o local.');
     if(escopo !== 'completo' && !tipo) throw new Error('Selecione o tipo para inventário parcial.');
     if(escopo === 'modelo' && (!marca || !modelo)) throw new Error('Selecione marca e modelo específico.');
+    if(esperados <= 0) throw new Error('Não há equipamentos físicos esperados para este local e escopo. Escolha outro tipo, marca, modelo ou local.');
 
     const res = await call('rpc_abrir_inventario_7a5', {
       p_titulo: titulo,
