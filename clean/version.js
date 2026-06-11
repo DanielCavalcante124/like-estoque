@@ -6,9 +6,9 @@
 
   const VERSION = {
     app: 'LIKE Estoque',
-    version: isLocal ? '1.3.0-local.6' : isStaging ? '1.2.0-beta.7' : '1.1.10',
+    version: isLocal ? '1.3.0-local.7' : isStaging ? '1.2.0-beta.8' : '1.1.11',
     releaseDate: '2026-06-11',
-    codename: isLocal ? 'local-inventario-fisico-local' : isStaging ? 'homologacao-inventario-fisico-local' : 'inventario-fisico-local'
+    codename: isLocal ? 'local-inventario-materiais-quantidade' : isStaging ? 'homologacao-inventario-materiais-quantidade' : 'inventario-materiais-quantidade'
   };
 
   function ensureBadge(){
