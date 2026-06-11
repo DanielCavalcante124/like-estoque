@@ -1,13 +1,13 @@
-import { table, call, first } from './api.js?v=3';
+import { table, call, first } from './api.js?v=5';
 import { openMovimentacaoModal } from './movimentacao_modal.js?v=1';
 
-const S = { equipamentos: [], tecnicos: [], locais: [], selecionado: null, ultimoComprovante: null };
-const $ = (id) => document.getElementById(id);
-const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const S = { equipamentos: [], tecnicos: [], locais: [], selecionado: null, ultimoComprovante: null, total: 0, busca: '', timer: null, carregando: false };
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const opId = () => globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8); return v.toString(16); });
-const ativo = (x) => x && x.ativo !== false;
-const norm = (v) => String(v || '').trim();
-const safeFile = (v) => String(v || 'devolucao').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'devolucao';
+const ativo = x => x && x.ativo !== false;
+const norm = v => String(v || '').trim();
+const safeFile = v => String(v || 'devolucao').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'devolucao';
 let bound = false;
 
 function msg(text, type=''){
@@ -18,13 +18,12 @@ function msg(text, type=''){
 }
 function nomeEq(e){ return [e?.tipo,e?.marca,e?.modelo].filter(Boolean).join(' ') || e?.codigo || '-'; }
 function identificacao(e){ return [e.codigo, e.mac, e.serial, nomeEq(e)].filter(Boolean).join(' • '); }
-function statusLower(e){ return String(e.status || '').toLowerCase(); }
+function statusLower(e){ return String(e?.status || '').toLowerCase(); }
 function nowBR(){ return new Date().toLocaleString('pt-BR'); }
 function todayFile(){ return new Date().toISOString().slice(0,10); }
 function isElegivelDevolucao(e){
   if(!ativo(e)) return false;
-  const s = statusLower(e);
-  return ['com técnico','com tecnico','instalado cliente','instalado no cliente','na rua','reservado'].includes(s);
+  return ['com técnico','com tecnico','instalado cliente','instalado no cliente','na rua','reservado'].includes(statusLower(e));
 }
 function destinoPorCondicao(condicao){
   const c = String(condicao || '').toLowerCase();
@@ -53,17 +52,16 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Devolução de equipamento</h2>
-            <p>Retorna equipamento de técnico, cliente, rua ou reserva via RPC e gera comprovante PDF/WhatsApp.</p>
+            <p>Busca equipamentos elegíveis direto no banco. Preparado para base grande sem carregar todos os equipamentos.</p>
           </div>
           <button id="devolucaoReload" class="secondary">Recarregar dados</button>
         </div>
         <div id="devolucaoMsg" class="msg"></div>
       </div>
-
       <div class="grid two">
         <form id="devolucaoForm" class="card form-card">
           <h2>Dados da devolução</h2>
-          <input id="devolucaoBuscaEquipamento" placeholder="Buscar equipamento por código, MAC, SN, técnico, cliente ou OS">
+          <input id="devolucaoBuscaEquipamento" placeholder="Buscar por código, MAC, SN, técnico, cliente ou OS">
           <select id="devolucaoEquipamento"></select>
           <div class="form-grid two">
             <select id="devolucaoTecnico"></select>
@@ -86,18 +84,18 @@ function inject(){
             <button class="secondary" id="devolucaoLimpar" type="button">Limpar</button>
           </div>
         </form>
-
         <div class="card">
           <h2>Resumo antes de confirmar</h2>
           <div id="devolucaoPreview" class="list"></div>
-          <div id="devolucaoRegra" class="msg show warn">Selecione um equipamento em uso/fora do estoque.</div>
+          <div id="devolucaoRegra" class="msg show warn">Pesquise e selecione um equipamento em uso/fora do estoque.</div>
         </div>
       </div>
-
       <div class="card">
         <div class="table-head">
-          <h2>Equipamentos elegíveis para devolução</h2>
-          <input id="devolucaoFiltroTabela" placeholder="Filtrar lista">
+          <div>
+            <h2>Equipamentos elegíveis para devolução</h2>
+            <p id="devolucaoTotalInfo">Mostrando até 80 equipamentos.</p>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
@@ -115,18 +113,21 @@ function inject(){
   $('devolucaoForm').onsubmit = abrirConfirmacao;
   $('devolucaoLimpar').onclick = limparForm;
   $('devolucaoUltimoComprovante').onclick = copiarUltimoComprovante;
-  $('devolucaoBuscaEquipamento').oninput = renderEquipSelect;
+  $('devolucaoBuscaEquipamento').oninput = () => {
+    S.busca = $('devolucaoBuscaEquipamento').value || '';
+    clearTimeout(S.timer);
+    S.timer = setTimeout(() => carregarEquipamentosElegiveis().catch(e=>msg(e.message,'bad')), 350);
+  };
   $('devolucaoEquipamento').onchange = selecionarEquipamento;
   $('devolucaoCondicao').onchange = () => { ajustarDestinoPorCondicao(); renderPreview(); };
   $('devolucaoTecnico').onchange = renderPreview;
-  ['devolucaoDestino','devolucaoOs','devolucaoMotivo','devolucaoObs','devolucaoFiltroTabela'].forEach(id=>{
-    const el=$(id); if(el) el.addEventListener('input',()=>{ if(id==='devolucaoFiltroTabela') renderTabela(); else renderPreview(); });
+  ['devolucaoDestino','devolucaoOs','devolucaoMotivo','devolucaoObs'].forEach(id=>{
+    const el=$(id); if(el) el.addEventListener('input', renderPreview);
   });
   document.addEventListener('click', ev => {
     const btn = ev.target.closest('[data-devolucao-eq]');
     if(!btn) return;
-    $('devolucaoEquipamento').value = btn.dataset.devolucaoEq;
-    selecionarEquipamento();
+    selecionarEquipamentoId(btn.dataset.devolucaoEq);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 }
@@ -141,16 +142,35 @@ function showPage(){
 }
 
 async function loadDevolucao(){
-  msg('Carregando equipamentos para devolução...', 'warn');
-  S.equipamentos = await table('equipamentos','created_at',false);
+  msg('Carregando dados da devolução...', 'warn');
   S.tecnicos = await table('tecnicos','nome',true);
   S.locais = await table('locais','nome',true);
   fillTecnicos();
   fillDestinos();
-  renderEquipSelect();
-  renderTabela();
+  await carregarEquipamentosElegiveis();
   renderPreview();
   msg('Devolução pronta para uso.', 'ok');
+}
+
+async function carregarEquipamentosElegiveis(){
+  if(S.carregando) return;
+  S.carregando = true;
+  try{
+    const res = await call('rpc_pesquisar_equipamentos_7a5', {
+      p_busca: S.busca || '',
+      p_status_filtro: 'devolucao',
+      p_limit: 80,
+      p_offset: 0
+    });
+    const atuais = res.items || [];
+    if(S.selecionado && !atuais.some(e => e.id === S.selecionado.id)) atuais.unshift(S.selecionado);
+    S.equipamentos = atuais.filter(isElegivelDevolucao);
+    S.total = Number(res.total || 0);
+    renderEquipSelect();
+    renderTabela();
+  }finally{
+    S.carregando = false;
+  }
 }
 
 function fillTecnicos(){
@@ -163,11 +183,17 @@ function fillDestinos(){
   $('devolucaoDestino').innerHTML = [...nomes].map(l=>`<option value="${esc(l)}">${esc(l)}</option>`).join('');
   ajustarDestinoPorCondicao(false);
 }
-function equipamentosElegiveis(){ return S.equipamentos.filter(isElegivelDevolucao); }
-function equipamentoSelecionado(){ return S.equipamentos.find(e=>e.id===$('devolucaoEquipamento')?.value); }
+function equipamentoSelecionado(){ return S.equipamentos.find(e=>e.id===$('devolucaoEquipamento')?.value) || S.selecionado; }
+function selecionarEquipamentoId(id){
+  const eq = S.equipamentos.find(e => e.id === id);
+  if(!eq) return;
+  S.selecionado = eq;
+  renderEquipSelect();
+  $('devolucaoEquipamento').value = id;
+  selecionarEquipamento();
+}
 function renderEquipSelect(){
-  const filtro = ($('devolucaoBuscaEquipamento')?.value || '').toLowerCase();
-  const rows = equipamentosElegiveis().filter(e => !filtro || JSON.stringify(e).toLowerCase().includes(filtro)).slice(0,200);
+  const rows = S.equipamentos.slice(0,80);
   $('devolucaoEquipamento').innerHTML = '<option value="">Selecionar equipamento para devolução</option>' + rows.map(e=>`<option value="${e.id}">${esc(identificacao(e))}</option>`).join('');
   if(S.selecionado && rows.some(e=>e.id===S.selecionado.id)) $('devolucaoEquipamento').value = S.selecionado.id;
 }
@@ -241,20 +267,7 @@ function snapshot(p, result, protocolo){
     motivo: p.motivo,
     obs: p.obs,
     status_final: result?.status || result?.status_final || 'Atualizado',
-    equipamento: {
-      codigo: result?.codigo || p.eq.codigo,
-      patrimonio: result?.patrimonio || p.eq.patrimonio,
-      mac: result?.mac || p.eq.mac,
-      serial: result?.serial || p.eq.serial,
-      tipo: result?.tipo || p.eq.tipo,
-      marca: result?.marca || p.eq.marca,
-      modelo: result?.modelo || p.eq.modelo,
-      status_anterior: p.eq.status,
-      local_anterior: p.eq.local,
-      tecnico_anterior: p.eq.tecnico_atual,
-      cliente_anterior: p.eq.cliente_atual,
-      os_anterior: p.eq.os_atual
-    }
+    equipamento: { codigo: result?.codigo || p.eq.codigo, patrimonio: result?.patrimonio || p.eq.patrimonio, mac: result?.mac || p.eq.mac, serial: result?.serial || p.eq.serial, tipo: result?.tipo || p.eq.tipo, marca: result?.marca || p.eq.marca, modelo: result?.modelo || p.eq.modelo, status_anterior: p.eq.status, local_anterior: p.eq.local, tecnico_anterior: p.eq.tecnico_atual, cliente_anterior: p.eq.cliente_atual, os_anterior: p.eq.os_atual }
   };
 }
 function textoComprovante(s){
@@ -278,12 +291,8 @@ function textoComprovante(s){
   return linhas.join('\n');
 }
 async function copiarTexto(texto, okMsg){
-  try{
-    await navigator.clipboard.writeText(texto);
-    if(okMsg) msg(okMsg, 'ok');
-  }catch(e){
-    window.prompt('Copie o comprovante:', texto);
-  }
+  try{ await navigator.clipboard.writeText(texto); if(okMsg) msg(okMsg, 'ok'); }
+  catch(e){ msg('Não foi possível copiar automaticamente. O comprovante foi gerado.', 'warn'); }
 }
 async function copiarUltimoComprovante(){
   if(!S.ultimoComprovante) return msg('Nenhum comprovante gerado nesta sessão.', 'warn');
@@ -291,10 +300,7 @@ async function copiarUltimoComprovante(){
 }
 function addPdfText(doc, text, x, y, maxWidth, lineHeight=5){
   const lines = doc.splitTextToSize(String(text ?? '-'), maxWidth);
-  for(const line of lines){
-    if(y > 282){ doc.addPage(); y = 16; }
-    doc.text(line, x, y); y += lineHeight;
-  }
+  for(const line of lines){ if(y > 282){ doc.addPage(); y = 16; } doc.text(line, x, y); y += lineHeight; }
   return y;
 }
 function gerarPdf(s){
@@ -330,25 +336,11 @@ async function confirmarDevolucao(p){
   try{
     msg('Registrando devolução via RPC...', 'warn');
     const protocolo = opId();
-    const result = first(await call('rpc_registrar_devolucao_equipamento', {
-      p_equipamento_id: p.eq.id,
-      p_tecnico: p.tecnico,
-      p_condicao: p.condicao,
-      p_destino: p.destino,
-      p_os: p.os,
-      p_motivo: p.motivo,
-      p_observacao: p.obs,
-      p_client_operation_id: protocolo
-    }));
+    const result = first(await call('rpc_registrar_devolucao_equipamento', { p_equipamento_id:p.eq.id, p_tecnico:p.tecnico, p_condicao:p.condicao, p_destino:p.destino, p_os:p.os, p_motivo:p.motivo, p_observacao:p.obs, p_client_operation_id:protocolo }));
     const comp = snapshot(p, result, protocolo);
     S.ultimoComprovante = comp;
     let pdfMsg = '';
-    try{
-      const file = gerarPdf(comp);
-      pdfMsg = ` PDF gerado: ${file}.`;
-    }catch(pdfErr){
-      pdfMsg = ` PDF não gerado: ${pdfErr.message}.`;
-    }
+    try{ pdfMsg = ` PDF gerado: ${gerarPdf(comp)}.`; }catch(pdfErr){ pdfMsg = ` PDF não gerado: ${pdfErr.message}.`; }
     await copiarTexto(textoComprovante(comp), '');
     msg(`Devolução registrada. Status: ${result?.status || 'atualizado'}. Comprovante WhatsApp copiado.${pdfMsg}`, 'ok');
     limparForm(false);
@@ -361,14 +353,14 @@ function limparForm(show=true){
   if($('devolucaoCondicao')) $('devolucaoCondicao').value='Testar';
   ajustarDestinoPorCondicao(false);
   S.selecionado = null;
+  S.busca = '';
   renderEquipSelect();
   renderPreview();
   if(show) msg('Formulário limpo.', 'ok');
 }
 function renderTabela(){
-  const filtro = ($('devolucaoFiltroTabela')?.value || '').toLowerCase();
-  const rows = equipamentosElegiveis().filter(e => !filtro || JSON.stringify(e).toLowerCase().includes(filtro)).slice(0,80);
-  $('devolucaoTbody').innerHTML = rows.map(e=>`
+  if($('devolucaoTotalInfo')) $('devolucaoTotalInfo').textContent = `Mostrando ${S.equipamentos.length} de ${S.total} elegíveis. Use a busca para localizar outros.`;
+  $('devolucaoTbody').innerHTML = S.equipamentos.map(e=>`
     <tr>
       <td><b>${esc(e.codigo || '-')}</b></td>
       <td>${esc(nomeEq(e))}</td>
@@ -382,3 +374,19 @@ function renderTabela(){
 
 inject();
 window.devolucaoCleanLoad = loadDevolucao;
+window.devolucaoCleanSelectById = async function(id){
+  if(!id) return false;
+  const atual = S.equipamentos.find(e => e.id === id);
+  if(atual){ selecionarEquipamentoId(id); return true; }
+  const res = await call('rpc_pesquisar_equipamentos_7a5', { p_busca:id, p_status_filtro:'todos', p_limit:10, p_offset:0 });
+  const eq = (res.items || []).find(e => e.id === id);
+  if(eq){
+    S.selecionado = eq;
+    if(!S.equipamentos.some(e => e.id === id)) S.equipamentos.unshift(eq);
+    renderEquipSelect();
+    $('devolucaoEquipamento').value = id;
+    selecionarEquipamento();
+    return true;
+  }
+  return false;
+};
