@@ -1,6 +1,6 @@
-import { table, call } from './api.js';
+import { table, call } from './api.js?v=5';
 
-const S = { modelos: [], tecnicos: [], saldos: [], movimentos: [], filtro: '' };
+const S = { modelos: [], tecnicos: [], saldos: [], movimentos: [], painel: null, filtro: '', timer: null };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const qtd = (v) => Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
@@ -44,7 +44,7 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Materiais</h2>
-            <p>Versão limpa. Entrada, saída para técnico e baixa por uso passam por RPC.</p>
+            <p>Entrada, saída para técnico e baixa por uso passam por RPC. Saldos e histórico recente são carregados no banco.</p>
           </div>
           <button id="matCleanReload" class="secondary">Recarregar materiais</button>
         </div>
@@ -88,7 +88,10 @@ function inject(){
 
       <div class="card">
         <div class="table-head">
-          <h2>Saldos de materiais</h2>
+          <div>
+            <h2>Saldos de materiais</h2>
+            <small id="matSaldoInfo">Mostrando saldos carregados no banco.</small>
+          </div>
           <input id="matCleanBusca" placeholder="Buscar material, técnico ou local">
         </div>
         <div class="table-wrap"><table><thead><tr><th>Categoria</th><th>Material</th><th>Unidade</th><th>Local</th><th>Técnico</th><th>Quantidade</th></tr></thead><tbody id="matSaldoTbody"></tbody></table></div>
@@ -102,7 +105,11 @@ function inject(){
   }
 
   $('matCleanReload').onclick = () => loadMateriais().catch((e)=>msg(e.message,'bad'));
-  $('matCleanBusca').oninput = () => { S.filtro = $('matCleanBusca').value || ''; renderMateriais(); };
+  $('matCleanBusca').oninput = () => {
+    S.filtro = $('matCleanBusca').value || '';
+    clearTimeout(S.timer);
+    S.timer = setTimeout(() => carregarPainelMateriais().catch((e)=>msg(e.message,'bad')), 350);
+  };
   $('matFormEntrada').onsubmit = entradaMaterial;
   $('matFormSaida').onsubmit = saidaMaterial;
   $('matFormConsumo').onsubmit = consumoMaterial;
@@ -121,10 +128,20 @@ async function loadMateriais(){
   msg('Carregando materiais...', 'warn');
   S.modelos = await table('modelos','tipo',true);
   S.tecnicos = await table('tecnicos','nome',true);
-  S.saldos = await table('materiais_saldos','tipo',true);
-  S.movimentos = await table('materiais_movimentos','created_at',false);
-  renderMateriais();
+  await carregarPainelMateriais();
   msg('Materiais carregados.', 'ok');
+}
+
+async function carregarPainelMateriais(){
+  const painel = await call('rpc_materiais_painel_7a5', {
+    p_busca: S.filtro || '',
+    p_limit: 200,
+    p_offset: 0
+  });
+  S.painel = painel || {};
+  S.saldos = S.painel.saldos || [];
+  S.movimentos = S.painel.movimentos_recentes || [];
+  renderMateriais();
 }
 
 function fillSelects(){
@@ -139,13 +156,13 @@ function fillSelects(){
 function renderMateriais(){
   fillSelects();
   const saldos = S.saldos || [];
-  const filtro = (S.filtro || '').toLowerCase();
-  const filtrados = saldos.filter((s)=>!filtro || JSON.stringify(s).toLowerCase().includes(filtro));
-  $('matKProdutos').textContent = materiaisAtivos().length;
-  $('matKSaldos').textContent = saldos.length;
-  $('matKQtd').textContent = qtd(saldos.reduce((a,s)=>a + Number(s.quantidade || 0), 0));
-  $('matKTecnicos').textContent = saldos.filter((s)=>s.tecnico && Number(s.quantidade || 0) > 0).length;
-  $('matSaldoTbody').innerHTML = filtrados.map((s)=>`
+  const k = S.painel?.kpis || {};
+  $('matKProdutos').textContent = Number(k.materiais_cadastrados ?? materiaisAtivos().length).toLocaleString('pt-BR');
+  $('matKSaldos').textContent = Number(k.linhas_saldo ?? S.painel?.total_saldos ?? saldos.length).toLocaleString('pt-BR');
+  $('matKQtd').textContent = qtd(k.quantidade_total ?? saldos.reduce((a,s)=>a + Number(s.quantidade || 0), 0));
+  $('matKTecnicos').textContent = Number(k.com_tecnicos ?? saldos.filter((s)=>s.tecnico && Number(s.quantidade || 0) > 0).length).toLocaleString('pt-BR');
+  if($('matSaldoInfo')) $('matSaldoInfo').textContent = `Mostrando ${saldos.length} de ${S.painel?.total_saldos ?? saldos.length} saldo(s). Histórico limitado aos 80 movimentos mais recentes.`;
+  $('matSaldoTbody').innerHTML = saldos.map((s)=>`
     <tr>
       <td>${esc(s.categoria || '')}</td>
       <td>${esc(materialNome(s))}</td>
@@ -182,40 +199,46 @@ function clearConsumo(){ $('matConsumoQtd').value=''; $('matConsumoObs').value='
 
 async function entradaMaterial(ev){
   ev.preventDefault();
-  const modeloId = requireSelect('matEntradaProduto','o material');
-  const quantidade = getQtd('matEntradaQtd');
-  const obs = $('matEntradaObs').value.trim();
-  msg('Registrando entrada via RPC...', 'warn');
-  await call('rpc_entrada_material', { p_modelo_id:modeloId, p_quantidade:quantidade, p_observacao:obs, p_client_operation_id:opId() });
-  clearEntrada();
-  await loadMateriais();
-  msg('Entrada de material registrada.', 'ok');
+  try{
+    const modeloId = requireSelect('matEntradaProduto','o material');
+    const quantidade = getQtd('matEntradaQtd');
+    const obs = $('matEntradaObs').value.trim();
+    msg('Registrando entrada via RPC...', 'warn');
+    await call('rpc_entrada_material', { p_modelo_id:modeloId, p_quantidade:quantidade, p_observacao:obs, p_client_operation_id:opId() });
+    clearEntrada();
+    await carregarPainelMateriais();
+    msg('Entrada de material registrada.', 'ok');
+  }catch(e){ msg(e.message || String(e), 'bad'); }
 }
 
 async function saidaMaterial(ev){
   ev.preventDefault();
-  const modeloId = requireSelect('matSaidaProduto','o material');
-  const tecnico = requireSelect('matSaidaTecnico','o técnico');
-  const quantidade = getQtd('matSaidaQtd');
-  const obs = $('matSaidaObs').value.trim();
-  msg('Registrando saída para técnico via RPC...', 'warn');
-  await call('rpc_saida_material_tecnico', { p_modelo_id:modeloId, p_quantidade:quantidade, p_tecnico:tecnico, p_observacao:obs, p_client_operation_id:opId() });
-  clearSaida();
-  await loadMateriais();
-  msg('Saída para técnico registrada.', 'ok');
+  try{
+    const modeloId = requireSelect('matSaidaProduto','o material');
+    const tecnico = requireSelect('matSaidaTecnico','o técnico');
+    const quantidade = getQtd('matSaidaQtd');
+    const obs = $('matSaidaObs').value.trim();
+    msg('Registrando saída para técnico via RPC...', 'warn');
+    await call('rpc_saida_material_tecnico', { p_modelo_id:modeloId, p_quantidade:quantidade, p_tecnico:tecnico, p_observacao:obs, p_client_operation_id:opId() });
+    clearSaida();
+    await carregarPainelMateriais();
+    msg('Saída para técnico registrada.', 'ok');
+  }catch(e){ msg(e.message || String(e), 'bad'); }
 }
 
 async function consumoMaterial(ev){
   ev.preventDefault();
-  const modeloId = requireSelect('matConsumoProduto','o material');
-  const tecnico = requireSelect('matConsumoTecnico','o técnico');
-  const quantidade = getQtd('matConsumoQtd');
-  const obs = $('matConsumoObs').value.trim();
-  msg('Registrando baixa por uso via RPC...', 'warn');
-  await call('rpc_consumo_material_tecnico', { p_modelo_id:modeloId, p_quantidade:quantidade, p_tecnico:tecnico, p_observacao:obs, p_client_operation_id:opId() });
-  clearConsumo();
-  await loadMateriais();
-  msg('Baixa por uso registrada.', 'ok');
+  try{
+    const modeloId = requireSelect('matConsumoProduto','o material');
+    const tecnico = requireSelect('matConsumoTecnico','o técnico');
+    const quantidade = getQtd('matConsumoQtd');
+    const obs = $('matConsumoObs').value.trim();
+    msg('Registrando baixa por uso via RPC...', 'warn');
+    await call('rpc_consumo_material_tecnico', { p_modelo_id:modeloId, p_quantidade:quantidade, p_tecnico:tecnico, p_observacao:obs, p_client_operation_id:opId() });
+    clearConsumo();
+    await carregarPainelMateriais();
+    msg('Baixa por uso registrada.', 'ok');
+  }catch(e){ msg(e.message || String(e), 'bad'); }
 }
 
 inject();
