@@ -1,8 +1,9 @@
 import { call, table } from './api.js?v=5';
 
-const S = { ctx:null, allowed:false, locais:[], inventarios:[], ativo:null, resumo:null, finalizarArmado:false };
+const S = { ctx:null, allowed:false, locais:[], modelos:[], equipamentos:[], inventarios:[], ativo:null, resumo:null, finalizarArmado:false };
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const norm = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const cls = v => ({ ok:'ok', divergente:'warn', nao_encontrado:'bad', duplicado:'warn', inativo:'bad', fora_escopo:'warn' }[v] || '');
 const lab = v => ({ ok:'OK', divergente:'Divergente', nao_encontrado:'Não encontrado', duplicado:'Duplicado', inativo:'Inativo', fora_escopo:'Fora do escopo' }[v] || v);
 const dt = v => { try { return v ? new Date(v).toLocaleString('pt-BR') : '-'; } catch(e){ return '-'; } };
@@ -16,7 +17,7 @@ function css(){
   if($('invBipCss')) return;
   const s = document.createElement('style');
   s.id = 'invBipCss';
-  s.textContent = `.inv-grid{display:grid;grid-template-columns:390px 1fr;gap:12px}.inv-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.inv-kpi{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px}.inv-kpi small{display:block;color:#64748b;font-weight:800}.inv-kpi b{font-size:22px}.inv-bip{font-size:22px!important;font-weight:900;letter-spacing:.03em;text-transform:uppercase}.inv-card{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px;margin-bottom:10px}.inv-card h3{margin:0 0 6px;font-size:16px}.inv-card p{margin:4px 0;color:#475569}.inv-actions{display:flex;gap:8px;flex-wrap:wrap}.inv-active{border-color:#60a5fa;box-shadow:0 0 0 3px #dbeafe}.badge.ok{background:#dcfce7;color:#166534}.badge.bad{background:#fee2e2;color:#991b1b}.badge.warn{background:#fef3c7;color:#92400e}.inv-muted{color:#64748b;font-size:12px}.inv-info{border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:14px;padding:10px;margin:8px 0;font-size:13px;line-height:1.45}.inv-info b{display:block;color:#0f172a;margin-bottom:4px}@media(max-width:1100px){.inv-grid{grid-template-columns:1fr}.inv-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.inv-kpis{grid-template-columns:1fr}.inv-actions{display:grid;grid-template-columns:1fr}.inv-actions>*{width:100%}.inv-bip{font-size:18px!important}}`;
+  s.textContent = `.inv-grid{display:grid;grid-template-columns:410px 1fr;gap:12px}.inv-kpis{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}.inv-kpi{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px}.inv-kpi small{display:block;color:#64748b;font-weight:800}.inv-kpi b{font-size:22px}.inv-bip{font-size:22px!important;font-weight:900;letter-spacing:.03em;text-transform:uppercase}.inv-card{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px;margin-bottom:10px}.inv-card h3{margin:0 0 6px;font-size:16px}.inv-card p{margin:4px 0;color:#475569}.inv-actions{display:flex;gap:8px;flex-wrap:wrap}.inv-active{border-color:#60a5fa;box-shadow:0 0 0 3px #dbeafe}.badge.ok{background:#dcfce7;color:#166534}.badge.bad{background:#fee2e2;color:#991b1b}.badge.warn{background:#fef3c7;color:#92400e}.inv-muted{color:#64748b;font-size:12px}.inv-scope-box{border:1px solid #e5e7eb;border-radius:14px;padding:10px;background:#f8fafc;margin:10px 0}.inv-scope-box small{display:block;color:#64748b;margin-top:4px}.inv-preview{border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:14px;padding:10px;margin:8px 0;font-size:13px;line-height:1.45}.inv-preview b{display:block;color:#0f172a;margin-bottom:4px}.inv-preview.warn{border-color:#fde68a;background:#fffbeb;color:#92400e}.inv-preview.bad{border-color:#fecaca;background:#fef2f2;color:#991b1b}@media(max-width:1100px){.inv-grid{grid-template-columns:1fr}.inv-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.inv-kpis{grid-template-columns:1fr}.inv-actions{display:grid;grid-template-columns:1fr}.inv-actions>*{width:100%}.inv-bip{font-size:18px!important}}`;
   document.head.appendChild(s);
 }
 
@@ -75,8 +76,8 @@ function inject(){
       <div class="card">
         <div class="table-head">
           <div>
-            <h2>Inventário de equipamentos</h2>
-            <p>Inventário completo dos equipamentos físicos do local. Para materiais, use a tela Inventário materiais.</p>
+            <h2>Inventário por bipagem</h2>
+            <p>Conte o estoque completo ou faça inventário parcial somente dos equipamentos físicos existentes no local.</p>
           </div>
           <button id="invReload" class="secondary">Recarregar</button>
         </div>
@@ -88,20 +89,35 @@ function inject(){
       <div class="inv-grid">
         <div>
           <form id="invAbrirForm" class="card form-card">
-            <h2>Abrir inventário de equipamentos</h2>
-            <input id="invTitulo" placeholder="Ex: Inventário completo - Estoque central">
+            <h2>Abrir inventário</h2>
+            <input id="invTitulo" placeholder="Ex: Inventário parcial ONT ZTE - Estoque central">
             <select id="invLocal"></select>
-            <div class="inv-info">
-              <b>Escopo fixo</b>
-              Esta tela conta todos os equipamentos físicos do local selecionado por bipagem, MAC, serial, patrimônio ou código. Não há filtro por modelo nesta tela.
+
+            <div class="inv-scope-box">
+              <label><b>Tipo de inventário</b></label>
+              <select id="invEscopo">
+                <option value="completo">Inventário completo do local</option>
+                <option value="tipo">Inventário por tipo de equipamento</option>
+                <option value="modelo">Inventário por marca e modelo específico</option>
+              </select>
+              <small>As opções abaixo são filtradas pelo que realmente existe como equipamento físico no local escolhido.</small>
             </div>
+
+            <div id="invFiltrosParciais" class="form-grid two" style="display:none">
+              <select id="invTipo"></select>
+              <select id="invMarca"></select>
+              <select id="invModelo"></select>
+            </div>
+
+            <div id="invEscopoPreview" class="inv-preview">Selecione o tipo de inventário para ver o escopo da contagem.</div>
+
             <textarea id="invObs" placeholder="Observação opcional"></textarea>
             <button class="primary" type="submit">Abrir inventário</button>
           </form>
 
           <div class="card">
             <div class="table-head">
-              <h2>Inventários de equipamentos</h2>
+              <h2>Inventários</h2>
               <select id="invFiltro">
                 <option value="">Todos</option>
                 <option value="aberto">Aberto</option>
@@ -154,6 +170,11 @@ function bind(){
   $('invFoco').onclick = () => $('invBip').focus();
   $('invBip').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); bipar(); } });
   $('invFinalizar').onclick = finalizar;
+  $('invEscopo').onchange = renderFiltrosEscopo;
+  $('invLocal').onchange = () => { renderTiposPorLocal(); renderEscopoPreview(); };
+  $('invTipo').onchange = () => { renderMarcasPorTipo(); renderEscopoPreview(); };
+  $('invMarca').onchange = () => { renderModelosPorMarca(); renderEscopoPreview(); };
+  $('invModelo').onchange = renderEscopoPreview;
 }
 
 async function show(){
@@ -163,7 +184,7 @@ async function show(){
   document.querySelectorAll('.nav').forEach(b => b.classList.toggle('active', b.id === 'navInventarioBipClean'));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-inventario-bip-clean'));
   moveNav();
-  if($('pageTitle')) $('pageTitle').textContent = 'Inventário de equipamentos';
+  if($('pageTitle')) $('pageTitle').textContent = 'Inventário';
   await loadAll();
   setTimeout(() => $('invBip')?.focus(), 300);
 }
@@ -171,28 +192,151 @@ async function show(){
 async function loadAll(){
   msg('Carregando inventário...', 'warn');
   await loadLocais();
+  await loadEquipamentos();
+  await loadModelos();
   await loadInventarios();
   if(S.ativo) await loadResumo(S.ativo.id);
+  renderEscopoPreview();
   msg('Inventário carregado.', 'ok');
 }
 
 async function loadLocais(){
   S.locais = await table('locais','nome',true);
-  $('invLocal').innerHTML = (S.locais || [])
-    .filter(l => l.ativo !== false)
-    .map(l => `<option value="${esc(l.nome)}">${esc(l.nome)}${l.tipo ? ' — ' + esc(l.tipo) : ''}</option>`)
-    .join('');
+  $('invLocal').innerHTML = (S.locais || []).filter(l => l.ativo !== false).map(l => `<option value="${esc(l.nome)}">${esc(l.nome)}${l.tipo ? ' — ' + esc(l.tipo) : ''}</option>`).join('');
+}
+
+async function loadModelos(){
+  S.modelos = (await table('modelos','tipo',true)).filter(m => m.ativo !== false && m.tipo);
+  renderTiposPorLocal();
+}
+
+async function loadEquipamentos(){
+  S.equipamentos = await table('equipamentos','created_at',false);
 }
 
 async function loadInventarios(){
   const st = $('invFiltro')?.value || null;
-  const res = await call('rpc_listar_inventarios_7a5', { p_status: st, p_limite: 80 });
-  S.inventarios = (res.inventarios || []).filter(i => (i.tipo_inventario || 'equipamentos') === 'equipamentos');
+  const res = await call('rpc_listar_inventarios_7a5', { p_status: st, p_limite: 50 });
+  S.inventarios = res.inventarios || [];
   renderLista();
 }
 
-function escopoLabel(){
-  return 'Completo do local';
+function equipamentosDoLocal(){
+  const local = $('invLocal')?.value || '';
+  return (S.equipamentos || []).filter(e => e.ativo !== false && norm(e.local) === norm(local));
+}
+
+function uniqueSorted(rows, field){
+  return [...new Set(rows.map(r => r?.[field]).filter(Boolean))].sort((a,b) => String(a).localeCompare(String(b),'pt-BR'));
+}
+
+function setSelectOptions(select, placeholder, values, current){
+  const exists = current && values.some(v => String(v) === String(current));
+  select.innerHTML = `<option value="">${esc(values.length ? placeholder : 'Nenhuma opção com equipamento neste local')}</option>` + values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  select.value = exists ? current : '';
+}
+
+function renderFiltrosEscopo(){
+  const escopo = $('invEscopo')?.value || 'completo';
+  const box = $('invFiltrosParciais');
+  if(!box) return;
+  box.style.display = escopo === 'completo' ? 'none' : 'grid';
+  $('invMarca').style.display = escopo === 'modelo' ? '' : 'none';
+  $('invModelo').style.display = escopo === 'modelo' ? '' : 'none';
+  if(escopo !== 'modelo'){
+    $('invMarca').value = '';
+    $('invModelo').value = '';
+  }
+  renderTiposPorLocal();
+  renderEscopoPreview();
+}
+
+function renderTiposPorLocal(){
+  const atual = $('invTipo')?.value || '';
+  const tipos = uniqueSorted(equipamentosDoLocal(), 'tipo');
+  setSelectOptions($('invTipo'), 'Selecione o tipo', tipos, atual);
+  renderMarcasPorTipo();
+}
+
+function renderMarcasPorTipo(){
+  const tipo = $('invTipo')?.value || '';
+  const atual = $('invMarca')?.value || '';
+  const base = equipamentosDoLocal().filter(e => !tipo || norm(e.tipo) === norm(tipo));
+  const marcas = uniqueSorted(base, 'marca');
+  setSelectOptions($('invMarca'), 'Selecione a marca', marcas, atual);
+  renderModelosPorMarca();
+}
+
+function renderModelosPorMarca(){
+  const tipo = $('invTipo')?.value || '';
+  const marca = $('invMarca')?.value || '';
+  const atual = $('invModelo')?.value || '';
+  const base = equipamentosDoLocal().filter(e => (!tipo || norm(e.tipo) === norm(tipo)) && (!marca || norm(e.marca) === norm(marca)));
+  const modelos = uniqueSorted(base, 'modelo');
+  setSelectOptions($('invModelo'), 'Selecione o modelo', modelos, atual);
+}
+
+function escopoAtual(){
+  const escopo = $('invEscopo')?.value || 'completo';
+  const tipo = $('invTipo')?.value || '';
+  const marca = $('invMarca')?.value || '';
+  const modelo = $('invModelo')?.value || '';
+  return { escopo, tipo, marca, modelo };
+}
+
+function equipamentoNoEscopo(e){
+  const s = escopoAtual();
+  if(s.escopo === 'completo') return true;
+  if(s.escopo === 'tipo') return norm(e.tipo) === norm(s.tipo);
+  if(s.escopo === 'modelo') return norm(e.tipo) === norm(s.tipo) && norm(e.marca) === norm(s.marca) && norm(e.modelo) === norm(s.modelo);
+  return true;
+}
+
+function equipamentosEsperados(){
+  return equipamentosDoLocal().filter(equipamentoNoEscopo);
+}
+
+function renderEscopoPreview(){
+  const box = $('invEscopoPreview');
+  if(!box) return;
+  const s = escopoAtual();
+  const local = $('invLocal')?.value || '-';
+  let cls = 'inv-preview';
+  let html = '';
+
+  if(s.escopo === 'completo'){
+    const total = equipamentosEsperados().length;
+    if(total <= 0) cls += ' warn';
+    html = `<b>Inventário completo do local</b>Local: ${esc(local)}<br>Equipamentos físicos esperados neste local: <b>${total}</b>`;
+  }else if(s.escopo === 'tipo'){
+    if(!s.tipo){
+      cls += ' warn';
+      html = '<b>Inventário por tipo</b>Selecione o tipo que será contado. A lista mostra somente tipos com equipamento físico neste local.';
+    }else{
+      const total = equipamentosEsperados().length;
+      if(total <= 0) cls += ' bad';
+      const modelos = [...new Set(equipamentosDoLocal().filter(e => norm(e.tipo) === norm(s.tipo)).map(e => `${e.marca || '-'} ${e.modelo || '-'}`))].slice(0,8);
+      html = `<b>Inventário por tipo</b>Tipo: ${esc(s.tipo)}<br>Local: ${esc(local)}<br>Equipamentos físicos esperados neste local: <b>${total}</b><br>Modelos encontrados neste local: ${esc(modelos.join(' • ') || '-')}`;
+    }
+  }else{
+    if(!s.tipo || !s.marca || !s.modelo){
+      cls += ' warn';
+      html = '<b>Inventário por marca e modelo</b>Selecione tipo, marca e modelo. As listas mostram somente equipamentos físicos existentes no local.';
+    }else{
+      const total = equipamentosEsperados().length;
+      if(total <= 0) cls += ' bad';
+      html = `<b>Inventário por marca e modelo</b>Tipo: ${esc(s.tipo)}<br>Marca: ${esc(s.marca)}<br>Modelo: ${esc(s.modelo)}<br>Local: ${esc(local)}<br>Equipamentos físicos esperados neste local: <b>${total}</b>`;
+    }
+  }
+  box.className = cls;
+  box.innerHTML = html;
+}
+
+function escopoLabel(i){
+  const e = i?.escopo || 'completo';
+  if(e === 'tipo') return `Tipo: ${i.filtro_tipo || '-'}`;
+  if(e === 'modelo') return `Modelo: ${[i.filtro_tipo, i.filtro_marca, i.filtro_modelo].filter(Boolean).join(' • ')}`;
+  return 'Completo';
 }
 
 function kpi(l,v){ return `<div class="inv-kpi"><small>${esc(l)}</small><b>${esc(v)}</b></div>`; }
@@ -204,6 +348,7 @@ function renderKpis(){
     kpi('Bipados', r.total_bipado || 0),
     kpi('OK', r.ok || 0),
     kpi('Divergentes', r.divergente || 0),
+    kpi('Fora escopo', r.fora_escopo || 0),
     kpi('Não encontrados', r.nao_encontrado || 0),
     kpi('Faltantes', r.faltantes || 0)
   ].join('');
@@ -218,7 +363,7 @@ function renderLista(){
       <p>Escopo: <b>${esc(escopoLabel(i))}</b></p>
       <p>Status: <span class="badge">${esc(i.status)}</span></p>
       <button class="secondary" data-inv-id="${esc(i.id)}">Selecionar</button>
-    </div>`).join('') || '<p>Nenhum inventário de equipamentos.</p>';
+    </div>`).join('') || '<p>Nenhum inventário.</p>';
   document.querySelectorAll('[data-inv-id]').forEach(b => b.onclick = () => selecionar(b.dataset.invId));
 }
 
@@ -260,17 +405,26 @@ async function abrir(ev){
   try{
     const titulo = $('invTitulo').value.trim();
     const local = $('invLocal').value;
+    const escopo = $('invEscopo').value || 'completo';
+    const tipo = $('invTipo').value || null;
+    const marca = $('invMarca').value || null;
+    const modelo = $('invModelo').value || null;
+    const esperados = equipamentosEsperados().length;
+
     if(!titulo) throw new Error('Informe o título.');
     if(!local) throw new Error('Selecione o local.');
+    if(escopo !== 'completo' && !tipo) throw new Error('Selecione o tipo para inventário parcial.');
+    if(escopo === 'modelo' && (!marca || !modelo)) throw new Error('Selecione marca e modelo específico.');
+    if(esperados <= 0) throw new Error('Não há equipamentos físicos esperados para este local e escopo. Escolha outro tipo, marca, modelo ou local.');
 
     const res = await call('rpc_abrir_inventario_7a5', {
       p_titulo: titulo,
       p_local_alvo: local,
       p_observacao: $('invObs').value.trim() || null,
-      p_escopo: 'completo',
-      p_filtro_tipo: null,
-      p_filtro_marca: null,
-      p_filtro_modelo: null
+      p_escopo: escopo,
+      p_filtro_tipo: escopo === 'completo' ? null : tipo,
+      p_filtro_marca: escopo === 'modelo' ? marca : null,
+      p_filtro_modelo: escopo === 'modelo' ? modelo : null
     });
 
     S.ativo = res.inventario;
@@ -278,7 +432,7 @@ async function abrir(ev){
     $('invObs').value = '';
     await loadInventarios();
     await loadResumo(S.ativo.id);
-    msg('Inventário de equipamentos aberto.', 'ok');
+    msg('Inventário aberto.', 'ok');
   }catch(e){
     msg(e.message || String(e), 'bad');
   }
@@ -315,7 +469,7 @@ async function finalizar(){
     }
     S.finalizarArmado = false;
     $('invFinalizar').textContent = 'Finalizar';
-    await call('rpc_finalizar_inventario_7a5', { p_inventario_id:S.ativo.id, p_observacao:'Inventário de equipamentos finalizado pela tela de bipagem.' });
+    await call('rpc_finalizar_inventario_7a5', { p_inventario_id:S.ativo.id, p_observacao:'Finalizado pela tela de bipagem.' });
     await loadInventarios();
     await loadResumo(S.ativo.id);
     msg('Inventário finalizado.', 'ok');
