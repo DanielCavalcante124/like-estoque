@@ -1,6 +1,6 @@
-import { table } from './api.js?v=3';
+import { call } from './api.js?v=5';
 
-const S = { equipamentos: [], tecnicos: [], locais: [], filtro: '' };
+const S = { equipamentos: [], total: 0, pagina: 0, limite: 50, filtro: '', status: 'ativos', carregando: false, timer: null };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const br = (v) => Number(v || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -12,7 +12,7 @@ const isBaixado = (e) => e?.ativo === false || isOne(e, ['baixado','inutilizado'
 const isAtivo = (e) => e && !isBaixado(e);
 const isEstoque = (e) => isAtivo(e) && isOne(e, ['em estoque']);
 const isTecnico = (e) => isAtivo(e) && isOne(e, ['com tecnico']);
-const isCliente = (e) => isAtivo(e) && isOne(e, ['instalado cliente','instalado no cliente','na rua','reservado']);
+const isCliente = (e) => isAtivo(e) && isOne(e, ['instalado cliente','instalado no cliente','na rua','reservado','na rua sem cadastro','pendente regularizacao','pendente regularização']);
 const isManutencao = (e) => isAtivo(e) && (isOne(e, ['manutencao','em manutencao','defeituoso','testar']) || norm(e.local).includes('manutencao'));
 const isGarantia = (e) => isAtivo(e) && (isOne(e, ['garantia']) || norm(e.local).includes('garantia'));
 const isAguardandoBaixa = (e) => isAtivo(e) && isOne(e, ['aguardando baixa','descarte autorizado']);
@@ -35,9 +35,11 @@ function msg(text, type=''){
 function nomeEq(e){ return [e.tipo,e.marca,e.modelo].filter(Boolean).join(' '); }
 function getEq(id){
   const e = S.equipamentos.find(x=>x.id===id);
-  if(!e) throw new Error('Equipamento não encontrado na lista carregada.');
+  if(!e) throw new Error('Equipamento não encontrado na página carregada. Pesquise novamente ou avance/volte a página.');
   return e;
 }
+function totalPaginas(){ return Math.max(1, Math.ceil(Number(S.total || 0) / S.limite)); }
+function paginaAtualHumana(){ return Math.min(S.pagina + 1, totalPaginas()); }
 
 function inject(){
   if(!$('navEquipamentosClean')){
@@ -60,7 +62,7 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Equipamentos</h2>
-            <p>Consulta central. Movimentações devem ser feitas nas telas padronizadas de Saída, Devolução, Manutenção, Baixa e Histórico.</p>
+            <p>Consulta central paginada. A busca é feita no banco para suportar milhares de equipamentos sem travar a tela.</p>
           </div>
           <button id="eqCleanReload" class="secondary">Recarregar equipamentos</button>
         </div>
@@ -78,15 +80,20 @@ function inject(){
             <option value="baixados">Baixados/inativos</option>
           </select>
         </div>
+        <div class="actions" style="margin-top:10px">
+          <button id="eqPrev" class="secondary" type="button">Página anterior</button>
+          <button id="eqNext" class="secondary" type="button">Próxima página</button>
+          <span id="eqPageInfo" class="badge">Página 1</span>
+        </div>
         <div id="eqCleanMsg" class="msg"></div>
       </div>
       <div class="kpis">
-        <div class="kpi"><small>Total carregado</small><b id="eqKTotal">0</b></div>
-        <div class="kpi"><small>Ativos</small><b id="eqKAtivos">0</b></div>
+        <div class="kpi"><small>Total encontrado</small><b id="eqKTotal">0</b></div>
+        <div class="kpi"><small>Nesta página</small><b id="eqKPage">0</b></div>
+        <div class="kpi"><small>Ativos na página</small><b id="eqKAtivos">0</b></div>
         <div class="kpi"><small>Em estoque</small><b id="eqKEstoque">0</b></div>
         <div class="kpi"><small>Com técnico</small><b id="eqKTecnico">0</b></div>
-        <div class="kpi"><small>Manutenção/Garantia</small><b id="eqKManutencao">0</b></div>
-        <div class="kpi"><small>Aguardando baixa</small><b id="eqKAguardandoBaixa">0</b></div>
+        <div class="kpi"><small>Manut./Garantia</small><b id="eqKManutencao">0</b></div>
       </div>
       <div class="card">
         <div class="table-wrap">
@@ -100,8 +107,19 @@ function inject(){
   }
 
   $('eqCleanReload').onclick = () => loadEquipamentos().catch((e)=>msg(e.message,'bad'));
-  $('eqCleanBusca').oninput = () => { S.filtro = $('eqCleanBusca').value || ''; renderEquipamentos(); };
-  $('eqCleanStatus').onchange = renderEquipamentos;
+  $('eqCleanBusca').oninput = () => {
+    S.filtro = $('eqCleanBusca').value || '';
+    S.pagina = 0;
+    clearTimeout(S.timer);
+    S.timer = setTimeout(() => loadEquipamentos().catch((e)=>msg(e.message,'bad')), 350);
+  };
+  $('eqCleanStatus').onchange = () => {
+    S.status = $('eqCleanStatus').value || 'ativos';
+    S.pagina = 0;
+    loadEquipamentos().catch((e)=>msg(e.message,'bad'));
+  };
+  $('eqPrev').onclick = () => mudarPagina(-1);
+  $('eqNext').onclick = () => mudarPagina(1);
 }
 
 function showPage(){
@@ -114,33 +132,30 @@ function showPage(){
 }
 
 async function loadEquipamentos(){
-  msg('Carregando equipamentos...', 'warn');
-  S.equipamentos = await table('equipamentos','created_at',false);
-  S.tecnicos = await table('tecnicos','nome',true);
-  S.locais = await table('locais','nome',true);
-  renderEquipamentos();
-  msg('Equipamentos carregados.', 'ok');
+  if(S.carregando) return;
+  S.carregando = true;
+  try{
+    msg('Pesquisando equipamentos no banco...', 'warn');
+    const res = await call('rpc_pesquisar_equipamentos_7a5', {
+      p_busca: S.filtro || '',
+      p_status_filtro: S.status || 'ativos',
+      p_limit: S.limite,
+      p_offset: S.pagina * S.limite
+    });
+    S.equipamentos = res.items || [];
+    S.total = Number(res.total || 0);
+    renderEquipamentos();
+    msg(`Equipamentos carregados: ${S.equipamentos.length} de ${S.total}.`, 'ok');
+  }finally{
+    S.carregando = false;
+  }
 }
 
-function passaStatus(e){
-  const f = $('eqCleanStatus') ? $('eqCleanStatus').value : 'ativos';
-  if(f === 'todos') return true;
-  if(f === 'ativos') return isAtivo(e);
-  if(f === 'estoque') return isEstoque(e);
-  if(f === 'tecnico') return isTecnico(e);
-  if(f === 'cliente') return isCliente(e);
-  if(f === 'manutencao') return isManutencao(e);
-  if(f === 'garantia') return isGarantia(e);
-  if(f === 'aguardando_baixa') return isAguardandoBaixa(e);
-  if(f === 'baixados') return isBaixado(e);
-  return true;
-}
-
-function listaFiltrada(){
-  const f = (S.filtro || '').toLowerCase();
-  return S.equipamentos
-    .filter(passaStatus)
-    .filter((e)=>!f || JSON.stringify(e).toLowerCase().includes(f));
+function mudarPagina(delta){
+  const nova = S.pagina + delta;
+  if(nova < 0 || nova >= totalPaginas()) return;
+  S.pagina = nova;
+  loadEquipamentos().catch((e)=>msg(e.message,'bad'));
 }
 
 function renderAcoes(e){
@@ -159,14 +174,17 @@ function renderAcoes(e){
 }
 
 function renderEquipamentos(){
-  const rows = listaFiltrada();
-  const ativos = S.equipamentos.filter(isAtivo);
-  $('eqKTotal').textContent = S.equipamentos.length;
-  $('eqKAtivos').textContent = ativos.length;
-  $('eqKEstoque').textContent = ativos.filter(isEstoque).length;
-  $('eqKTecnico').textContent = ativos.filter(isTecnico).length;
-  $('eqKManutencao').textContent = ativos.filter(e=>isManutencao(e) || isGarantia(e)).length;
-  $('eqKAguardandoBaixa').textContent = ativos.filter(isAguardandoBaixa).length;
+  const rows = S.equipamentos || [];
+  const ativos = rows.filter(isAtivo);
+  $('eqKTotal').textContent = Number(S.total || 0).toLocaleString('pt-BR');
+  $('eqKPage').textContent = rows.length.toLocaleString('pt-BR');
+  $('eqKAtivos').textContent = ativos.length.toLocaleString('pt-BR');
+  $('eqKEstoque').textContent = rows.filter(isEstoque).length.toLocaleString('pt-BR');
+  $('eqKTecnico').textContent = rows.filter(isTecnico).length.toLocaleString('pt-BR');
+  $('eqKManutencao').textContent = rows.filter(e=>isManutencao(e) || isGarantia(e)).length.toLocaleString('pt-BR');
+  $('eqPageInfo').textContent = `Página ${paginaAtualHumana()} de ${totalPaginas()} • ${S.limite} por página`;
+  $('eqPrev').disabled = S.pagina <= 0;
+  $('eqNext').disabled = S.pagina >= totalPaginas() - 1;
   $('eqCleanTbody').innerHTML = rows.map((e)=>`
     <tr>
       <td><b>${esc(e.codigo)}</b><br><small>${esc(e.patrimonio || '')}</small></td>
