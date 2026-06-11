@@ -1,6 +1,6 @@
 import { call, table } from './api.js?v=5';
 
-const S = { ctx:null, allowed:false, locais:[], modelos:[], inventarios:[], ativo:null, resumo:null, finalizarArmado:false };
+const S = { ctx:null, allowed:false, locais:[], modelos:[], equipamentos:[], inventarios:[], ativo:null, resumo:null, finalizarArmado:false };
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const norm = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
@@ -17,7 +17,7 @@ function css(){
   if($('invBipCss')) return;
   const s = document.createElement('style');
   s.id = 'invBipCss';
-  s.textContent = `.inv-grid{display:grid;grid-template-columns:390px 1fr;gap:12px}.inv-kpis{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}.inv-kpi{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px}.inv-kpi small{display:block;color:#64748b;font-weight:800}.inv-kpi b{font-size:22px}.inv-bip{font-size:22px!important;font-weight:900;letter-spacing:.03em;text-transform:uppercase}.inv-card{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px;margin-bottom:10px}.inv-card h3{margin:0 0 6px;font-size:16px}.inv-card p{margin:4px 0;color:#475569}.inv-actions{display:flex;gap:8px;flex-wrap:wrap}.inv-active{border-color:#60a5fa;box-shadow:0 0 0 3px #dbeafe}.badge.ok{background:#dcfce7;color:#166534}.badge.bad{background:#fee2e2;color:#991b1b}.badge.warn{background:#fef3c7;color:#92400e}.inv-muted{color:#64748b;font-size:12px}.inv-scope-box{border:1px solid #e5e7eb;border-radius:14px;padding:10px;background:#f8fafc;margin:10px 0}.inv-scope-box small{display:block;color:#64748b;margin-top:4px}@media(max-width:1100px){.inv-grid{grid-template-columns:1fr}.inv-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.inv-kpis{grid-template-columns:1fr}.inv-actions{display:grid;grid-template-columns:1fr}.inv-actions>*{width:100%}.inv-bip{font-size:18px!important}}`;
+  s.textContent = `.inv-grid{display:grid;grid-template-columns:410px 1fr;gap:12px}.inv-kpis{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}.inv-kpi{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px}.inv-kpi small{display:block;color:#64748b;font-weight:800}.inv-kpi b{font-size:22px}.inv-bip{font-size:22px!important;font-weight:900;letter-spacing:.03em;text-transform:uppercase}.inv-card{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px;margin-bottom:10px}.inv-card h3{margin:0 0 6px;font-size:16px}.inv-card p{margin:4px 0;color:#475569}.inv-actions{display:flex;gap:8px;flex-wrap:wrap}.inv-active{border-color:#60a5fa;box-shadow:0 0 0 3px #dbeafe}.badge.ok{background:#dcfce7;color:#166534}.badge.bad{background:#fee2e2;color:#991b1b}.badge.warn{background:#fef3c7;color:#92400e}.inv-muted{color:#64748b;font-size:12px}.inv-scope-box{border:1px solid #e5e7eb;border-radius:14px;padding:10px;background:#f8fafc;margin:10px 0}.inv-scope-box small{display:block;color:#64748b;margin-top:4px}.inv-preview{border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:14px;padding:10px;margin:8px 0;font-size:13px;line-height:1.45}.inv-preview b{display:block;color:#0f172a;margin-bottom:4px}.inv-preview.warn{border-color:#fde68a;background:#fffbeb;color:#92400e}.inv-preview.bad{border-color:#fecaca;background:#fef2f2;color:#991b1b}@media(max-width:1100px){.inv-grid{grid-template-columns:1fr}.inv-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.inv-kpis{grid-template-columns:1fr}.inv-actions{display:grid;grid-template-columns:1fr}.inv-actions>*{width:100%}.inv-bip{font-size:18px!important}}`;
   document.head.appendChild(s);
 }
 
@@ -77,7 +77,7 @@ function inject(){
         <div class="table-head">
           <div>
             <h2>Inventário por bipagem</h2>
-            <p>Conte o estoque completo ou faça inventário parcial por tipo/modelo sem fechar o estoque inteiro.</p>
+            <p>Conte o estoque completo ou faça inventário parcial por tipo, marca e modelo sem fechar o estoque inteiro.</p>
           </div>
           <button id="invReload" class="secondary">Recarregar</button>
         </div>
@@ -90,7 +90,7 @@ function inject(){
         <div>
           <form id="invAbrirForm" class="card form-card">
             <h2>Abrir inventário</h2>
-            <input id="invTitulo" placeholder="Ex: Inventário parcial ONT - Estoque central">
+            <input id="invTitulo" placeholder="Ex: Inventário parcial ONT Huawei - Estoque central">
             <select id="invLocal"></select>
 
             <div class="inv-scope-box">
@@ -98,15 +98,18 @@ function inject(){
               <select id="invEscopo">
                 <option value="completo">Inventário completo do local</option>
                 <option value="tipo">Inventário por tipo</option>
-                <option value="modelo">Inventário por modelo específico</option>
+                <option value="modelo">Inventário por marca e modelo específico</option>
               </select>
-              <small>Use inventário parcial para contar uma família de equipamentos sem parar todo o estoque.</small>
+              <small>Use inventário parcial para contar uma família ou um modelo sem parar todo o estoque.</small>
             </div>
 
             <div id="invFiltrosParciais" class="form-grid two" style="display:none">
               <select id="invTipo"></select>
+              <select id="invMarca"></select>
               <select id="invModelo"></select>
             </div>
+
+            <div id="invEscopoPreview" class="inv-preview">Selecione o tipo de inventário para ver o escopo da contagem.</div>
 
             <textarea id="invObs" placeholder="Observação opcional"></textarea>
             <button class="primary" type="submit">Abrir inventário</button>
@@ -168,7 +171,10 @@ function bind(){
   $('invBip').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); bipar(); } });
   $('invFinalizar').onclick = finalizar;
   $('invEscopo').onchange = renderFiltrosEscopo;
-  $('invTipo').onchange = renderModelosPorTipo;
+  $('invLocal').onchange = renderEscopoPreview;
+  $('invTipo').onchange = () => { renderMarcasPorTipo(); renderEscopoPreview(); };
+  $('invMarca').onchange = () => { renderModelosPorMarca(); renderEscopoPreview(); };
+  $('invModelo').onchange = renderEscopoPreview;
 }
 
 async function show(){
@@ -187,8 +193,10 @@ async function loadAll(){
   msg('Carregando inventário...', 'warn');
   await loadLocais();
   await loadModelos();
+  await loadEquipamentos();
   await loadInventarios();
   if(S.ativo) await loadResumo(S.ativo.id);
+  renderEscopoPreview();
   msg('Inventário carregado.', 'ok');
 }
 
@@ -204,6 +212,10 @@ async function loadModelos(){
   renderFiltrosEscopo();
 }
 
+async function loadEquipamentos(){
+  S.equipamentos = await table('equipamentos','created_at',false);
+}
+
 async function loadInventarios(){
   const st = $('invFiltro')?.value || null;
   const res = await call('rpc_listar_inventarios_7a5', { p_status: st, p_limite: 50 });
@@ -216,20 +228,91 @@ function renderFiltrosEscopo(){
   const box = $('invFiltrosParciais');
   if(!box) return;
   box.style.display = escopo === 'completo' ? 'none' : 'grid';
+  $('invMarca').style.display = escopo === 'modelo' ? '' : 'none';
   $('invModelo').style.display = escopo === 'modelo' ? '' : 'none';
-  if(escopo !== 'modelo') $('invModelo').value = '';
-  renderModelosPorTipo();
+  if(escopo !== 'modelo'){
+    $('invMarca').value = '';
+    $('invModelo').value = '';
+  }
+  renderMarcasPorTipo();
+  renderEscopoPreview();
 }
 
-function renderModelosPorTipo(){
+function renderMarcasPorTipo(){
   const tipo = $('invTipo')?.value || '';
-  const rows = S.modelos.filter(m => !tipo || m.tipo === tipo).sort((a,b) => `${a.marca} ${a.modelo}`.localeCompare(`${b.marca} ${b.modelo}`,'pt-BR'));
-  $('invModelo').innerHTML = '<option value="">Selecione o modelo</option>' + rows.map(m => `<option value="${esc(m.id)}">${esc(m.marca || '-')} • ${esc(m.modelo || '-')}</option>`).join('');
+  const marcas = [...new Set(S.modelos.filter(m => !tipo || m.tipo === tipo).map(m => m.marca).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR'));
+  $('invMarca').innerHTML = '<option value="">Selecione a marca</option>' + marcas.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  renderModelosPorMarca();
+}
+
+function renderModelosPorMarca(){
+  const tipo = $('invTipo')?.value || '';
+  const marca = $('invMarca')?.value || '';
+  const rows = S.modelos
+    .filter(m => (!tipo || m.tipo === tipo) && (!marca || m.marca === marca))
+    .sort((a,b) => `${a.modelo}`.localeCompare(`${b.modelo}`,'pt-BR'));
+  $('invModelo').innerHTML = '<option value="">Selecione o modelo</option>' + rows.map(m => `<option value="${esc(m.modelo || '')}">${esc(m.modelo || '-')}</option>`).join('');
 }
 
 function modeloSelecionado(){
-  const id = $('invModelo')?.value;
-  return S.modelos.find(m => m.id === id) || null;
+  const tipo = $('invTipo')?.value || '';
+  const marca = $('invMarca')?.value || '';
+  const modelo = $('invModelo')?.value || '';
+  return S.modelos.find(m => m.tipo === tipo && m.marca === marca && m.modelo === modelo) || null;
+}
+
+function escopoAtual(){
+  const escopo = $('invEscopo')?.value || 'completo';
+  const tipo = $('invTipo')?.value || '';
+  const marca = $('invMarca')?.value || '';
+  const modelo = $('invModelo')?.value || '';
+  return { escopo, tipo, marca, modelo };
+}
+
+function equipamentoNoEscopo(e){
+  const s = escopoAtual();
+  if(s.escopo === 'completo') return true;
+  if(s.escopo === 'tipo') return norm(e.tipo) === norm(s.tipo);
+  if(s.escopo === 'modelo') return norm(e.tipo) === norm(s.tipo) && norm(e.marca) === norm(s.marca) && norm(e.modelo) === norm(s.modelo);
+  return true;
+}
+
+function equipamentosEsperados(){
+  const local = $('invLocal')?.value || '';
+  return (S.equipamentos || []).filter(e => e.ativo !== false && norm(e.local) === norm(local) && equipamentoNoEscopo(e));
+}
+
+function renderEscopoPreview(){
+  const box = $('invEscopoPreview');
+  if(!box) return;
+  const s = escopoAtual();
+  const local = $('invLocal')?.value || '-';
+  let cls = 'inv-preview';
+  let html = '';
+
+  if(s.escopo === 'completo'){
+    const total = equipamentosEsperados().length;
+    html = `<b>Inventário completo do local</b>Local: ${esc(local)}<br>Equipamentos esperados neste local: <b>${total}</b>`;
+  }else if(s.escopo === 'tipo'){
+    if(!s.tipo){
+      cls += ' warn';
+      html = '<b>Inventário por tipo</b>Selecione o tipo que será contado.';
+    }else{
+      const total = equipamentosEsperados().length;
+      const modelos = [...new Set(S.modelos.filter(m => m.tipo === s.tipo).map(m => `${m.marca || '-'} ${m.modelo || '-'}`))].slice(0,8);
+      html = `<b>Inventário por tipo</b>Tipo: ${esc(s.tipo)}<br>Local: ${esc(local)}<br>Equipamentos esperados neste local: <b>${total}</b><br>Modelos ativos desse tipo: ${esc(modelos.join(' • ') || '-')}`;
+    }
+  }else{
+    if(!s.tipo || !s.marca || !s.modelo){
+      cls += ' warn';
+      html = '<b>Inventário por marca e modelo</b>Selecione tipo, marca e modelo do equipamento que será contado.';
+    }else{
+      const total = equipamentosEsperados().length;
+      html = `<b>Inventário por marca e modelo</b>Tipo: ${esc(s.tipo)}<br>Marca: ${esc(s.marca)}<br>Modelo: ${esc(s.modelo)}<br>Local: ${esc(local)}<br>Equipamentos esperados neste local: <b>${total}</b>`;
+    }
+  }
+  box.className = cls;
+  box.innerHTML = html;
 }
 
 function escopoLabel(i){
@@ -307,12 +390,13 @@ async function abrir(ev){
     const local = $('invLocal').value;
     const escopo = $('invEscopo').value || 'completo';
     const tipo = $('invTipo').value || null;
-    const mod = modeloSelecionado();
+    const marca = $('invMarca').value || null;
+    const modelo = $('invModelo').value || null;
 
     if(!titulo) throw new Error('Informe o título.');
     if(!local) throw new Error('Selecione o local.');
     if(escopo !== 'completo' && !tipo) throw new Error('Selecione o tipo para inventário parcial.');
-    if(escopo === 'modelo' && !mod) throw new Error('Selecione o modelo específico.');
+    if(escopo === 'modelo' && (!marca || !modelo)) throw new Error('Selecione marca e modelo específico.');
 
     const res = await call('rpc_abrir_inventario_7a5', {
       p_titulo: titulo,
@@ -320,8 +404,8 @@ async function abrir(ev){
       p_observacao: $('invObs').value.trim() || null,
       p_escopo: escopo,
       p_filtro_tipo: escopo === 'completo' ? null : tipo,
-      p_filtro_marca: escopo === 'modelo' ? mod.marca : null,
-      p_filtro_modelo: escopo === 'modelo' ? mod.modelo : null
+      p_filtro_marca: escopo === 'modelo' ? marca : null,
+      p_filtro_modelo: escopo === 'modelo' ? modelo : null
     });
 
     S.ativo = res.inventario;
