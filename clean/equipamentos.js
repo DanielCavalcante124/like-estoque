@@ -19,7 +19,7 @@ const isAguardandoBaixa = (e) => isAtivo(e) && isOne(e, ['aguardando baixa','des
 const isElegivelBaixa = (e) => isManutencao(e) || isGarantia(e) || isAguardandoBaixa(e) || isOne(e, ['inutilizado','defeituoso']);
 
 const FLUXOS = {
-  saida: { nav:'navSaidaClean', load:'saidaCleanLoad', select:'saidaEquipamento', label:'Saída' },
+  saida: { nav:'navSaidaClean', load:'saidaCleanLoad', select:'saidaEquipamento', label:'Saída', asyncSelect:'saidaCleanSelectById' },
   devolucao: { nav:'navDevolucaoClean', load:'devolucaoCleanLoad', select:'devolucaoEquipamento', label:'Devolução' },
   manutencao: { nav:'navManutencaoClean', load:'manutencaoCleanLoad', select:'manutencaoEquipamento', label:'Manutenção' },
   baixa: { nav:'navBaixaClean', load:'baixaCleanLoad', select:'baixaEquipamento', label:'Baixa' },
@@ -215,13 +215,18 @@ async function abrirFluxo(tipo, id){
   if(typeof window[f.load] === 'function') await window[f.load]();
   await sleep(100);
 
-  const select = $(f.select);
-  if(!select) throw new Error(`Campo de seleção da tela ${f.label} não encontrado.`);
-  select.value = id;
-  if(select.value !== id){
-    throw new Error(`O equipamento não apareceu na lista de ${f.label}. Status atual: ${eq.status || '-'}.`);
+  if(f.asyncSelect && typeof window[f.asyncSelect] === 'function'){
+    const ok = await window[f.asyncSelect](id);
+    if(!ok) throw new Error(`Não foi possível selecionar o equipamento na tela ${f.label}.`);
+  }else{
+    const select = $(f.select);
+    if(!select) throw new Error(`Campo de seleção da tela ${f.label} não encontrado.`);
+    select.value = id;
+    if(select.value !== id){
+      throw new Error(`O equipamento não apareceu na lista de ${f.label}. Status atual: ${eq.status || '-'}.`);
+    }
+    select.dispatchEvent(new Event('change', { bubbles:true }));
   }
-  select.dispatchEvent(new Event('change', { bubbles:true }));
 
   if(f.form){
     await sleep(50);
