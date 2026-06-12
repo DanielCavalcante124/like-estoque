@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.31",
+  "version": "1.1.32",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "hardening-revoke-anon-public-funcao-inventario",
-  "summary": "Revogado EXECUTE de anon/public na função auxiliar app_inventario_equipamento_no_escopo_7a5, preservando authenticated.",
+  "codename": "hardening-assert-readonly-dashboard-historico",
+  "summary": "Adicionada validação interna app_assert_permission('consulta') nas RPCs readonly rpc_dashboard_operacional e rpc_historico_equipamento.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -28,10 +28,11 @@
     "permissoes": "6",
     "relatorios_pdf_js": "7a5",
     "frontend_change": "none",
-    "database_change": "migration security_revoke_anon_public_app_inventario_escopo_20260612",
-    "validation": "catalogo confirmou anon_execute=false, public_execute=false, authenticated_execute=true e security_definer=false",
+    "database_change": "migration security_assert_readonly_dashboard_historico_20260612",
+    "validation": "catalogo confirmou has_consulta_assert=true, has_auth_check_cte=true, anon_execute=false, public_execute=false, authenticated_execute=true",
     "security_hardening": [
-      "revoke_anon_public_execute_app_inventario_equipamento_no_escopo_7a5"
+      "assert_permission_consulta_rpc_dashboard_operacional",
+      "assert_permission_consulta_rpc_historico_equipamento"
     ]
   }
 }
