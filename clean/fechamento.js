@@ -9,6 +9,7 @@ const dt = v => { try { return v ? new Date(v).toLocaleString('pt-BR') : '-'; } 
 const hoje = () => new Date().toISOString().slice(0,10);
 const primeiroDiaMes = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0,10); };
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const REL_LIMITES = { p_mov_limit:100, p_mat_limit:200, p_alert_limit:100 };
 
 function msg(text,type=''){
   const el = $('fecMsg');
@@ -124,7 +125,7 @@ async function gerarPreview(){
     const periodo = await validarPeriodoTela(false);
     exigirPeriodoLivre(periodo);
     msg('Gerando prévia do fechamento...', 'warn');
-    const rel = await call('rpc_relatorio_gerencial_5v', { p_data_ini:p.ini, p_data_fim:p.fim, p_tecnico:null, p_status:null });
+    const rel = await call('rpc_relatorio_gerencial_7a5', { p_data_ini:p.ini, p_data_fim:p.fim, p_tecnico:null, p_status:null, ...REL_LIMITES });
     const aud = await call('rpc_auditoria_divergencias_5v1', { p_gravidade:null, p_categoria:null });
     const mov = resumoMovimentosRelatorio(rel);
     S.preview = {
