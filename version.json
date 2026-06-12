@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.30",
+  "version": "1.1.31",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "hardening-revoke-anon-table-grants",
-  "summary": "Revogados grants diretos do papel anon nas tabelas principais de produção, mantendo RLS e permissões authenticated preservadas.",
+  "codename": "hardening-revoke-anon-public-funcao-inventario",
+  "summary": "Revogado EXECUTE de anon/public na função auxiliar app_inventario_equipamento_no_escopo_7a5, preservando authenticated.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -28,10 +28,10 @@
     "permissoes": "6",
     "relatorios_pdf_js": "7a5",
     "frontend_change": "none",
-    "database_change": "migration security_revoke_anon_table_grants_20260612",
-    "validation": "17 tabelas validadas com anon_select/insert/update/delete=false e authenticated preservado",
+    "database_change": "migration security_revoke_anon_public_app_inventario_escopo_20260612",
+    "validation": "catalogo confirmou anon_execute=false, public_execute=false, authenticated_execute=true e security_definer=false",
     "security_hardening": [
-      "revoke_anon_table_grants"
+      "revoke_anon_public_execute_app_inventario_equipamento_no_escopo_7a5"
     ]
   }
 }
