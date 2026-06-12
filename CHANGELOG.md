@@ -10,6 +10,29 @@ Formato adotado: versionamento semântico.
 
 ---
 
+## [1.1.27] - 2026-06-12
+
+### Alterado
+
+- Limpos textos antigos do `index-clean.html` ligados a patches, etapas internas e ambiente legado.
+- Removido o link visual `Voltar para app atual` da barra lateral.
+- Atualizado título do navegador para `LIKE Estoque - Controle Operacional`.
+- Atualizado texto da marca lateral para `Controle operacional de estoque`.
+- Atualizado texto do cabeçalho principal para uma descrição profissional do painel.
+
+### Segurança
+
+- Nenhuma alteração de banco.
+- Nenhuma RPC alterada.
+- Nenhum script funcional removido.
+- Nenhum cache-bust alterado, pois a alteração foi textual no HTML principal.
+
+### Validação
+
+- Documentado em `docs/UX_INDEX_TEXT_CLEANUP_20260612.md`.
+
+---
+
 ## [1.1.26] - 2026-06-12
 
 ### Alterado
