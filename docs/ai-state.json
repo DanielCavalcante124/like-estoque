@@ -5,9 +5,9 @@
     "supabase_project_id": "yuyeyawigbbjtzghkbbr",
     "hosting": "GitHub Pages + Supabase",
     "primary_entry": "index-clean.html",
-    "current_production_version": "1.1.7",
-    "current_staging_version": "1.2.0-beta.4",
-    "current_local_version": "1.3.0-local.3"
+    "current_production_version": "1.1.13",
+    "current_staging_version": "1.2.0-beta.9",
+    "current_local_version": "1.3.0-local.8"
   },
   "owner_preferences": {
     "language": "pt-BR",
@@ -100,6 +100,20 @@
     "human_continuity_doc": "docs/CONTINUIDADE_CHATGPT.md"
   },
   "implemented_features": {
+    "security_trigger_execute_lockdown": {
+      "version": "1.1.13",
+      "migration": "security_revoke_execute_trigger_functions_20260612",
+      "date": "2026-06-12",
+      "behavior": "removeu execucao direta por public, anon e authenticated de quatro funcoes de trigger SECURITY DEFINER expostas via RPC",
+      "functions": [
+        "trg_fechamentos_sem_sobreposicao_5w2",
+        "trg_materiais_movimentos_periodo_aberto_5w2",
+        "trg_movimentos_periodo_aberto_5w2",
+        "trg_user_profiles_updated_at_6c"
+      ],
+      "validation": "public_execute=false, anon_execute=false e authenticated_execute=false; triggers permaneceram enabled",
+      "risk": "baixo; DDL de permissao sem alteracao de dados"
+    },
     "pdf_optional_print": {
       "file": "clean/pdf_actions.js",
       "behavior": "intercepta jsPDF doc.save, mantem download e oferece imprimir/agora abrir/baixar novamente",
@@ -143,6 +157,21 @@
     }
   },
   "known_technical_debt": [
+    {
+      "item": "Supabase Advisor - function_search_path_mutable",
+      "reason": "funcoes app_normalizar_bip_7a5, app_gerar_codigo_inventario_7a5, app_hash_termo_inventario_7a5_3 e objetos teste_* ainda aparecem sem search_path fixo",
+      "best_future_fix": "aplicar alter function set search_path = public, pg_temp nas funcoes oficiais e manter teste_* para limpeza apos validacao manual"
+    },
+    {
+      "item": "Supabase Advisor - authenticated_security_definer_function_executable",
+      "reason": "muitas RPCs SECURITY DEFINER aparecem callable por authenticated; parte delas e operacional e nao deve ser bloqueada sem revisar chamadas do front e permissoes internas",
+      "best_future_fix": "separar RPC operacional legitima, funcoes internas app_assert_* e triggers restantes; revogar execucao direta apenas onde for seguro"
+    },
+    {
+      "item": "Supabase Auth leaked password protection",
+      "reason": "protecao contra senhas vazadas aparece desativada no Advisor",
+      "best_future_fix": "habilitar no painel Auth do Supabase apos avaliar impacto nos usuarios"
+    },
     {
       "item": "menu_operacao_fix.js",
       "reason": "confirmar instalacao caiu em Outros porque permissoes.js tem lista fixa de categorias",
