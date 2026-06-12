@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.35",
+  "version": "1.1.36",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "hotfix-audit-log-acao-check",
-  "summary": "Corrigido erro audit_log_acao_check usando acao='rpc' nas RPCs de confirmar instalação e corrigir local, mantendo o detalhe específico no resumo.",
+  "codename": "modelagem-confirmar-instalacao-cliente-final",
+  "summary": "Consolidada regra oficial da confirmação de instalação: local operacional Cliente final, cliente informado em cliente_atual e OS em os_atual.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -28,11 +28,10 @@
     "permissoes": "6",
     "relatorios_pdf_js": "7a5",
     "frontend_change": "none",
-    "database_change": "migrations fix_audit_log_acao_confirmar_corrigir_20260612_v2 e fix_audit_log_acao_corrigir_local_20260612",
-    "validation": "catalogo confirmou uses_allowed_action_rpc=true, keeps_specific_summary=true, keeps_audit_log=true, has_stock_assert=true, authenticated_execute=true, anon_execute=false e public_execute=false",
-    "hotfix": [
-      "audit_log_acao_check_confirmar_instalacao",
-      "audit_log_acao_check_corrigir_local"
+    "database_change": "migration modelagem_confirmar_instalacao_cliente_final_20260612_v3",
+    "validation": "catalogo confirmou local Cliente final, cliente_atual preservado, os_atual preservado, segurança e idempotência preservadas",
+    "modeling": [
+      "confirmar_instalacao_cliente_final"
     ]
   }
 }
