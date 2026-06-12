@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.21",
+  "version": "1.1.22",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "diagnostic-rpc-lockdown",
-  "summary": "Bloqueadas RPCs antigas de diagnostico e documentacao nao usadas pelo frontend nem por outras funcoes publicas, preservando endpoints operacionais.",
+  "codename": "profile-test-screen-retired",
+  "summary": "Aposentada a tela Teste perfis removendo o carregamento do modulo no index-clean.html e bloqueadas as RPCs 6E/6D que eram usadas apenas por essa tela, preservando as RPCs reais de usuarios e permissoes.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -24,14 +24,23 @@
     "tecnicos": "3",
     "fechamento": "4",
     "relatorios_pdf_js": "7a5",
-    "database_migration": "security_revoke_diagnostic_documentation_rpcs_20260612",
-    "rpc_locked_group": "diagnostic_documentation",
+    "frontend_change": "index-clean.html nao carrega mais clean/teste_perfis.js?v=1",
+    "database_migration": "security_revoke_retired_profile_test_rpcs_20260612",
+    "screen_retired": "Teste perfis",
+    "rpc_locked_group": "profile_test_6e_6d",
     "rpc_locked": [
-      "rpc_diagnostico_leitura_perfil_6f",
-      "rpc_diagnostico_policies_antigas_6f",
-      "rpc_marco_fase_7a",
-      "rpc_revisao_final_producao_6g",
-      "rpc_registrar_versao_estavel_6g"
+      "rpc_validar_matriz_perfis_6e",
+      "rpc_listar_testes_perfis_6e",
+      "rpc_registrar_teste_perfil_6e",
+      "rpc_matriz_permissoes_6d"
+    ],
+    "rpc_preserved": [
+      "rpc_usuario_contexto_6c",
+      "rpc_usuario_contexto_6a1",
+      "rpc_perfis_disponiveis_6c",
+      "rpc_listar_usuarios_perfis_6c",
+      "rpc_salvar_usuario_perfil_6c",
+      "rpc_alterar_status_usuario_perfil_6c"
     ]
   }
 }
