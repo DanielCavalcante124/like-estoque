@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.14",
+  "version": "1.1.15",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "materiais-rpc-categoria-corrigida",
-  "summary": "Corrigida RPC do painel de materiais removendo referencia invalida a coluna m.categoria na tabela modelos; a coluna correta usada e categoria_estoque.",
+  "codename": "security-function-search-path",
+  "summary": "Corrigido alerta function_search_path_mutable do Supabase Advisor fixando search_path em funcoes app_* e teste_* apontadas pelo linter.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -22,6 +22,6 @@
     "entrada": "5",
     "entrada_lote": "5",
     "tecnicos": "3",
-    "database_migration": "fix_rpc_materiais_painel_categoria_20260612"
+    "database_migration": "security_fix_function_search_path_mutable_20260612"
   }
 }
