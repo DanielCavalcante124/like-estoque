@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.32",
+  "version": "1.1.33",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "hardening-assert-readonly-dashboard-historico",
-  "summary": "Adicionada validação interna app_assert_permission('consulta') nas RPCs readonly rpc_dashboard_operacional e rpc_historico_equipamento.",
+  "codename": "audit-log-complementar-confirmar-corrigir-local",
+  "summary": "Adicionado audit_log complementar nas RPCs rpc_confirmar_instalacao_cliente e rpc_corrigir_local_divergente_5v21, preservando movimentos como trilha operacional principal.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -28,11 +28,11 @@
     "permissoes": "6",
     "relatorios_pdf_js": "7a5",
     "frontend_change": "none",
-    "database_change": "migration security_assert_readonly_dashboard_historico_20260612",
-    "validation": "catalogo confirmou has_consulta_assert=true, has_auth_check_cte=true, anon_execute=false, public_execute=false, authenticated_execute=true",
+    "database_change": "migration security_audit_log_confirmar_instalacao_corrigir_local_20260612",
+    "validation": "catalogo confirmou writes_audit_log=true, uses_auth_uid=true, has_stock_assert=true, keeps_movimento_insert=true, anon_execute=false e public_execute=false",
     "security_hardening": [
-      "assert_permission_consulta_rpc_dashboard_operacional",
-      "assert_permission_consulta_rpc_historico_equipamento"
+      "audit_log_complementar_rpc_confirmar_instalacao_cliente",
+      "audit_log_complementar_rpc_corrigir_local_divergente_5v21"
     ]
   }
 }
