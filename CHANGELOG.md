@@ -10,6 +10,31 @@ Formato adotado: versionamento semântico.
 
 ---
 
+## [1.1.13] - 2026-06-12
+
+### Segurança
+
+- Aplicada migration `security_revoke_execute_trigger_functions_20260612` no Supabase de produção.
+- Removida execução direta por `public`, `anon` e `authenticated` das funções de trigger:
+  - `trg_fechamentos_sem_sobreposicao_5w2()`;
+  - `trg_materiais_movimentos_periodo_aberto_5w2()`;
+  - `trg_movimentos_periodo_aberto_5w2()`;
+  - `trg_user_profiles_updated_at_6c()`.
+- Corrigido o bloco de alertas `anon_security_definer_function_executable` relacionado a essas quatro triggers.
+
+### Validação
+
+- Teste manual prévio com `begin -> revoke -> select privileges -> rollback` retornou `false` para `public`, `anon` e `authenticated` nas quatro funções.
+- Após aplicação definitiva, nova validação confirmou `public_execute=false`, `anon_execute=false` e `authenticated_execute=false`.
+- Triggers permaneceram `enabled` nas tabelas oficiais.
+- Nenhum arquivo JS/CSS foi alterado; portanto, não houve alteração de cache-bust no `index-clean.html`.
+
+### Observação operacional
+
+- Durante a janela de validação houve uso real do sistema: `movimentos` aumentou de 177 para 178 e `audit_log` registrou nova saída rápida em lote. A migration aplicada contém apenas `REVOKE EXECUTE` e não grava movimentação de estoque.
+
+---
+
 ## [1.1.1] - 2026-06-09
 
 ### Alterado
