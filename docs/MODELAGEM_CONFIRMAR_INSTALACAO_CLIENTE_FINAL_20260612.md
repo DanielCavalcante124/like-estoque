@@ -44,6 +44,20 @@ anon_execute = false
 public_execute = false
 ```
 
+## Teste em produção
+
+Teste informado pelo usuário:
+
+```text
+A confirmação de instalação funcionou corretamente.
+```
+
+Status da etapa:
+
+```text
+Aprovada em uso real.
+```
+
 ## Decisão técnica
 
 O campo `local` deve representar local operacional cadastrado.
@@ -57,3 +71,11 @@ A Auditoria continua validando `local` contra a tabela `locais`.
 Evita falso apontamento de local inválido após instalação.
 
 Preserva segurança, rastreabilidade e estabilidade.
+
+## Acerto registrado
+
+Corrigir a origem do dado foi melhor do que enfraquecer a Auditoria.
+
+## Erro a evitar
+
+Não gravar texto livre de cliente no campo `local`.
