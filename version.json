@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.28",
+  "version": "1.1.29",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "confirmar-instalacao-menu-oficial",
-  "summary": "Confirmar instalacao foi incorporada ao menu oficial de permissoes, removendo o fix externo menu_operacao_fix.js e mantendo a permissao operacao_estoque.",
+  "codename": "hardening-rpc-confirmar-instalacao",
+  "summary": "Adicionada validação interna app_assert_can_operate_stock na RPC rpc_confirmar_instalacao_cliente, protegendo chamada direta fora da interface.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -27,9 +27,11 @@
     "auditoria": "3",
     "permissoes": "6",
     "relatorios_pdf_js": "7a5",
-    "frontend_change": "clean/permissoes.js reconhece navConfirmarInstalacao em Operacao; index-clean.html remove menu_operacao_fix.js e usa permissoes.js?v=6",
-    "database_change": "none",
-    "validation": "busca por menu_operacao_fix/navConfirmarInstalacao retornou apenas ai-state antigo antes da sincronizacao; nenhuma RPC alterada",
-    "rpc_preserved": []
+    "frontend_change": "none",
+    "database_change": "migration security_assert_confirmar_instalacao_cliente_20260612",
+    "validation": "catalogo confirmou has_stock_assert=true, anon_execute=false, public_execute=false, authenticated_execute=true, keeps_row_lock=true, keeps_movement_insert=true",
+    "rpc_hardened": [
+      "rpc_confirmar_instalacao_cliente"
+    ]
   }
 }
