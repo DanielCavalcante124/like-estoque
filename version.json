@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.34",
+  "version": "1.1.35",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "idempotencia-confirmar-instalacao",
-  "summary": "Adicionado retorno idempotente amigável na RPC rpc_confirmar_instalacao_cliente para reenvio com o mesmo client_operation_id.",
+  "codename": "hotfix-audit-log-acao-check",
+  "summary": "Corrigido erro audit_log_acao_check usando acao='rpc' nas RPCs de confirmar instalação e corrigir local, mantendo o detalhe específico no resumo.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -28,10 +28,11 @@
     "permissoes": "6",
     "relatorios_pdf_js": "7a5",
     "frontend_change": "none",
-    "database_change": "migration idempotencia_confirmar_instalacao_cliente_20260612",
-    "validation": "catalogo confirmou has_stock_assert=true, protects_reused_uuid=true, has_idempotent_return=true, keeps_movimento_insert=true, keeps_audit_log_insert=true, keeps_row_lock=true, anon_execute=false e public_execute=false",
-    "security_hardening": [
-      "idempotencia_amigavel_rpc_confirmar_instalacao_cliente"
+    "database_change": "migrations fix_audit_log_acao_confirmar_corrigir_20260612_v2 e fix_audit_log_acao_corrigir_local_20260612",
+    "validation": "catalogo confirmou uses_allowed_action_rpc=true, keeps_specific_summary=true, keeps_audit_log=true, has_stock_assert=true, authenticated_execute=true, anon_execute=false e public_execute=false",
+    "hotfix": [
+      "audit_log_acao_check_confirmar_instalacao",
+      "audit_log_acao_check_corrigir_local"
     ]
   }
 }
