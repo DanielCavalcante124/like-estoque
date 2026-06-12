@@ -10,6 +10,25 @@ Formato adotado: versionamento semântico.
 
 ---
 
+## [1.1.14] - 2026-06-12
+
+### Corrigido
+
+- Corrigida a RPC oficial `rpc_materiais_painel_7a5` no Supabase de produção.
+- Removida referência inválida à coluna `m.categoria` no KPI `materiais_cadastrados`.
+- A tabela `modelos` não possui coluna `categoria`; a classificação correta é feita por `categoria_estoque` e `controle`.
+- A aba Materiais deve voltar a carregar o painel, saldos e histórico recente pelo banco.
+
+### Validação
+
+- Confirmado no schema real que `modelos` possui `categoria_estoque`, mas não possui `categoria`.
+- Confirmado que `materiais_saldos` e `materiais_movimentos` possuem coluna `categoria`, por isso a correção foi limitada apenas ao trecho que usa alias `m` da tabela `modelos`.
+- Validada lógica equivalente do painel com retorno `ok=true`, `total_saldos=10`, `linhas_saldo=10`, `quantidade_total=2011`, `com_tecnicos=4` e `materiais_cadastrados=10`.
+- Preservado `SECURITY DEFINER`, `search_path=public`, `authenticated_execute=true` e `anon_execute=false`.
+- Nenhum arquivo JS/CSS foi alterado; portanto, não houve alteração de cache-bust no `index-clean.html`.
+
+---
+
 ## [1.1.13] - 2026-06-12
 
 ### Segurança
