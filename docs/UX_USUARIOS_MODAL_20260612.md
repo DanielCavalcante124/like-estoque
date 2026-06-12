@@ -93,6 +93,22 @@ Após Ctrl+F5, validar:
 7. Confirmar que aparece modal interno, não alerta nativo do navegador.
 ```
 
+## Teste aprovado
+
+Data: 2026-06-12.
+
+O usuário informou que os testes da aba Usuários deram certo e que o projeto está no caminho certo.
+
+Resultado:
+
+```text
+Teste aprovado.
+Aba Usuários funcionando.
+Modal interno validado.
+Cache-bust clean/usuarios.js?v=2 aplicado.
+Sem alteração de banco.
+```
+
 ## Observação importante
 
 A tela continua sem criar senha no Supabase Auth. Ela apenas vincula o usuário Auth já criado e gerencia o perfil operacional.
