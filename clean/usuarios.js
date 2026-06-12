@@ -14,9 +14,38 @@ function css(){
   if($('usrCss')) return;
   const s = document.createElement('style');
   s.id = 'usrCss';
-  s.textContent = `.usr-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.usr-kpi{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px}.usr-kpi small{display:block;color:#64748b;font-weight:800}.usr-kpi b{font-size:21px}.usr-grid{display:grid;grid-template-columns:420px 1fr;gap:12px}.usr-actions{display:flex;gap:8px;flex-wrap:wrap}.usr-box{border:1px solid #e5e7eb;border-radius:14px;padding:10px;margin-bottom:8px;background:#fff}.usr-box b{display:block}.usr-box small{color:#64748b}.usr-ok{background:#dcfce7;color:#166534}.usr-bad{background:#fee2e2;color:#991b1b}.usr-warn{border-color:#eab308;background:#fffbeb}.usr-id{font-family:ui-monospace,monospace;font-size:11px;word-break:break-all;color:#64748b}@media(max-width:1100px){.usr-grid{grid-template-columns:1fr}.usr-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.usr-actions button{width:100%}.usr-kpis{grid-template-columns:1fr}}`;
+  s.textContent = `.usr-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.usr-kpi{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px}.usr-kpi small{display:block;color:#64748b;font-weight:800}.usr-kpi b{font-size:21px}.usr-grid{display:grid;grid-template-columns:420px 1fr;gap:12px}.usr-actions{display:flex;gap:8px;flex-wrap:wrap}.usr-box{border:1px solid #e5e7eb;border-radius:14px;padding:10px;margin-bottom:8px;background:#fff}.usr-box b{display:block}.usr-box small{color:#64748b}.usr-ok{background:#dcfce7;color:#166534}.usr-bad{background:#fee2e2;color:#991b1b}.usr-warn{border-color:#eab308;background:#fffbeb}.usr-id{font-family:ui-monospace,monospace;font-size:11px;word-break:break-all;color:#64748b}.usr-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}.usr-modal{width:min(560px,100%);background:#fff;border-radius:18px;border:1px solid #e5e7eb;box-shadow:0 24px 70px rgba(15,23,42,.28);padding:18px}.usr-modal h3{margin:0 0 8px}.usr-modal p{margin:0 0 12px;color:#475569;line-height:1.45}.usr-modal label{display:block;font-weight:800;margin-top:10px;color:#334155}.usr-modal input,.usr-modal textarea{width:100%;box-sizing:border-box;margin-top:6px}.usr-modal textarea{resize:vertical;min-height:110px}.usr-modal-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}@media(max-width:1100px){.usr-grid{grid-template-columns:1fr}.usr-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.usr-actions button,.usr-modal-actions button{width:100%}.usr-kpis{grid-template-columns:1fr}}`;
   document.head.appendChild(s);
 }
+function modal({titulo, texto='', okText='Confirmar', cancelText='Cancelar', danger=false, fields=[]}){
+  css();
+  return new Promise(resolve => {
+    $('usrModalBackdrop')?.remove();
+    const back = document.createElement('div');
+    back.id = 'usrModalBackdrop';
+    back.className = 'usr-modal-backdrop';
+    back.innerHTML = `<div class="usr-modal" role="dialog" aria-modal="true"><h3>${esc(titulo)}</h3>${texto ? `<p>${esc(texto)}</p>` : ''}<div id="usrModalFields"></div><div class="usr-modal-actions"><button id="usrModalCancel" class="secondary" type="button">${esc(cancelText)}</button><button id="usrModalOk" class="${danger ? 'danger' : 'primary'}" type="button">${esc(okText)}</button></div></div>`;
+    document.body.appendChild(back);
+    const values = {};
+    fields.forEach(f => {
+      const id = `usrModal_${f.name}`;
+      const tag = f.type === 'textarea' ? 'textarea' : 'input';
+      const html = tag === 'textarea'
+        ? `<label for="${esc(id)}">${esc(f.label)}</label><textarea id="${esc(id)}" placeholder="${esc(f.placeholder || '')}">${esc(f.value || '')}</textarea>`
+        : `<label for="${esc(id)}">${esc(f.label)}</label><input id="${esc(id)}" type="${esc(f.type || 'text')}" placeholder="${esc(f.placeholder || '')}">`;
+      back.querySelector('#usrModalFields').insertAdjacentHTML('beforeend', html);
+      const el = back.querySelector(`#${id}`);
+      if(tag === 'input') el.value = f.value || '';
+      values[f.name] = el;
+    });
+    const close = result => { back.remove(); resolve(result); };
+    back.querySelector('#usrModalCancel').onclick = () => close({ ok:false, values:{} });
+    back.querySelector('#usrModalOk').onclick = () => close({ ok:true, values:Object.fromEntries(Object.entries(values).map(([k,el]) => [k, (el.value || '').trim()])) });
+    back.addEventListener('keydown', ev => { if(ev.key === 'Escape') close({ ok:false, values:{} }); });
+    back.querySelector('input,textarea,button')?.focus();
+  });
+}
+async function aviso(titulo, texto){ await modal({ titulo, texto, okText:'Entendi', cancelText:'Fechar' }); }
 function removeAdminUi(){
   const nav = $('navUsuariosClean');
   const page = $('page-usuarios-clean');
@@ -85,7 +114,7 @@ function inject(){
 }
 async function show(){
   const ok = S.admin || await ensureAdmin();
-  if(!ok){ alert('Acesso restrito ao administrador.'); return; }
+  if(!ok){ await aviso('Acesso restrito', 'Esta tela é restrita ao administrador.'); return; }
   inject();
   document.querySelectorAll('.nav').forEach(b => b.classList.toggle('active', b.id === 'navUsuariosClean'));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-usuarios-clean'));
@@ -158,9 +187,7 @@ function editar(id){
   $('usrMotivo').value = 'Atualização de perfil operacional';
   msg('Perfil carregado para edição.', 'ok');
 }
-function validarUuid(v){
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || '').trim());
-}
+function validarUuid(v){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || '').trim()); }
 async function salvar(ev){
   ev.preventDefault();
   try{
@@ -172,16 +199,10 @@ async function salvar(ev){
     if(!validarUuid(userId)) throw new Error('Informe um User ID válido do Supabase Auth.');
     if(nome.length < 2) throw new Error('Informe nome/e-mail operacional.');
     if(motivo.length < 5) throw new Error('Informe motivo da alteração.');
-    const payload = {
-      p_profile_id: $('usrProfileId').value || null,
-      p_user_id: userId,
-      p_nome: nome,
-      p_perfil: $('usrPerfil').value,
-      p_tecnico_nome: $('usrTecnico').value.trim() || null,
-      p_ativo: $('usrAtivo').value === 'true',
-      p_motivo: motivo
-    };
-    if(!confirm('Confirmar alteração de perfil/permissão?')) return;
+    const payload = { p_profile_id: $('usrProfileId').value || null, p_user_id:userId, p_nome:nome, p_perfil:$('usrPerfil').value, p_tecnico_nome:$('usrTecnico').value.trim() || null, p_ativo:$('usrAtivo').value === 'true', p_motivo:motivo };
+    const perfil = S.perfis.find(p => p.perfil === payload.p_perfil)?.nome || payload.p_perfil;
+    const r = await modal({ titulo:'Salvar perfil operacional', texto:`Usuário: ${nome}. Perfil: ${perfil}. Status: ${payload.p_ativo ? 'Ativo' : 'Inativo'}. Esta alteração afeta permissões do sistema.`, okText:'Salvar perfil', danger:true });
+    if(!r.ok) return;
     await call('rpc_salvar_usuario_perfil_6c', payload);
     limparForm();
     await loadUsuarios();
@@ -190,9 +211,12 @@ async function salvar(ev){
 }
 async function alterarStatus(id, ativo){
   try{
-    const motivo = prompt(ativo ? 'Motivo para ativar este perfil:' : 'Motivo para inativar este perfil:')?.trim();
+    const u = S.usuarios.find(x => x.id === id);
+    const acao = ativo ? 'Ativar' : 'Inativar';
+    const r = await modal({ titulo:`${acao} perfil operacional`, texto:`Usuário: ${u?.nome || id}. Informe o motivo para registrar em auditoria.`, okText:acao, danger:!ativo, fields:[{ name:'motivo', label:'Motivo da alteração', type:'textarea', placeholder:'Informe pelo menos 5 caracteres' }] });
+    if(!r.ok) return;
+    const motivo = r.values.motivo;
     if(!motivo || motivo.length < 5) return msg('Motivo obrigatório com pelo menos 5 caracteres.', 'warn');
-    if(!confirm(`${ativo ? 'Ativar' : 'Inativar'} este perfil?`)) return;
     await call('rpc_alterar_status_usuario_perfil_6c', { p_profile_id:id, p_ativo:ativo, p_motivo:motivo });
     await loadUsuarios();
     msg('Status atualizado.', 'ok');
