@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.33",
+  "version": "1.1.34",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "audit-log-complementar-confirmar-corrigir-local",
-  "summary": "Adicionado audit_log complementar nas RPCs rpc_confirmar_instalacao_cliente e rpc_corrigir_local_divergente_5v21, preservando movimentos como trilha operacional principal.",
+  "codename": "idempotencia-confirmar-instalacao",
+  "summary": "Adicionado retorno idempotente amigável na RPC rpc_confirmar_instalacao_cliente para reenvio com o mesmo client_operation_id.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -28,11 +28,10 @@
     "permissoes": "6",
     "relatorios_pdf_js": "7a5",
     "frontend_change": "none",
-    "database_change": "migration security_audit_log_confirmar_instalacao_corrigir_local_20260612",
-    "validation": "catalogo confirmou writes_audit_log=true, uses_auth_uid=true, has_stock_assert=true, keeps_movimento_insert=true, anon_execute=false e public_execute=false",
+    "database_change": "migration idempotencia_confirmar_instalacao_cliente_20260612",
+    "validation": "catalogo confirmou has_stock_assert=true, protects_reused_uuid=true, has_idempotent_return=true, keeps_movimento_insert=true, keeps_audit_log_insert=true, keeps_row_lock=true, anon_execute=false e public_execute=false",
     "security_hardening": [
-      "audit_log_complementar_rpc_confirmar_instalacao_cliente",
-      "audit_log_complementar_rpc_corrigir_local_divergente_5v21"
+      "idempotencia_amigavel_rpc_confirmar_instalacao_cliente"
     ]
   }
 }
