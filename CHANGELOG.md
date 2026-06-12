@@ -10,6 +10,27 @@ Formato adotado: versionamento semântico.
 
 ---
 
+## [1.1.26] - 2026-06-12
+
+### Alterado
+
+- Substituídos `confirm()` e `window.prompt()` da aba **Auditoria** por modal interno responsivo.
+- Atualizado cache-bust do `index-clean.html` para `clean/auditoria.js?v=3`.
+- Mantidas as mesmas RPCs da Auditoria, sem alteração no banco.
+
+### Preservado
+
+- `rpc_auditoria_divergencias_5v1`
+- `rpc_corrigir_local_divergente_5v21`
+
+### Validação
+
+- Validado `node --check clean/auditoria.js` sem erro de sintaxe.
+- Busca no GitHub não encontrou mais `alert`, `confirm` ou `prompt` em `clean/auditoria.js`.
+- Documentado em `docs/UX_AUDITORIA_MODAL_20260612.md`.
+
+---
+
 ## [1.1.25] - 2026-06-12
 
 ### Alterado
