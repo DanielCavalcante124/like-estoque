@@ -5,89 +5,61 @@
     "supabase_project_id": "yuyeyawigbbjtzghkbbr",
     "hosting": "GitHub Pages + Supabase",
     "primary_entry": "index-clean.html",
-    "current_production_version": "1.1.27",
+    "current_production_version": "1.1.28",
     "current_staging_version": "1.2.0-beta.9",
     "current_local_version": "1.3.0-local.8",
     "last_sync_date": "2026-06-12"
   },
-  "owner_preferences": {
-    "language": "pt-BR",
-    "style": ["direto", "tecnico", "objetivo", "sem enrolacao"],
-    "role_expected_from_ai": "programador full stack senior",
-    "needs_step_by_step_for": ["Supabase", "banco de dados", "GitHub", "deploy", "ambiente local"],
-    "do_not_suggest": ["gambiarras", "patch paralelo desnecessario", "prompt do navegador", "confirm do navegador", "senhas em texto puro", "excluir historico", "controle de kit"]
+  "current_frontend": {
+    "permissoes": "clean/permissoes.js?v=6",
+    "confirmar_instalacao": "clean/confirmar_instalacao.js?v=2",
+    "fechamento": "clean/fechamento.js?v=5",
+    "usuarios": "clean/usuarios.js?v=2",
+    "auditoria": "clean/auditoria.js?v=3",
+    "version": "clean/version.js?v=7"
   },
-  "hard_rules": {
-    "workflow": ["Procurar primeiro", "Mexer pequeno", "Preservar operacional", "Testar no navegador", "Documentar", "Versionar", "Nao repetir revogacao agressiva em funcao auxiliar"],
-    "architecture": ["Alterar arquivos oficiais quando a regra estiver errada", "Evitar loader ou patch para mascarar problema", "Preservar historico de movimentacoes", "Separar front, banco, RPC e documentacao", "Atualizar cache-bust ao alterar modulo carregado no index-clean.html", "Nao bloquear RPC chamada por clean/*.js sem migrar o frontend antes"],
-    "database": ["Usar SELECT para validacao sem alterar dados", "Usar migration para DDL", "Nao usar UPDATE/INSERT/DELETE em producao sem autorizacao clara", "Nao apagar equipamento para corrigir status", "RPC critica deve registrar movimento", "Para operacao critica: snapshot antes -> begin -> teste controlado -> rollback -> snapshot depois -> comparar -> aplicar se seguro"],
-    "security": ["Nunca expor service_role no frontend", "Usar RLS e grants restritos", "RPC critica deve ser apenas para authenticated", "Executar Supabase advisors apos mudancas sensiveis", "Nao revogar app_* operacionais sem refatoracao para schema privado"],
-    "ux": ["Nao usar prompt()", "Nao usar confirm()", "Nao usar alert() em fluxo critico quando puder usar modal interno", "Usar cards/modais internos", "Colocar botoes no grupo correto do menu"]
+  "latest_change": {
+    "version": "1.1.28",
+    "codename": "confirmar-instalacao-menu-oficial",
+    "type": "frontend-menu-cleanup",
+    "summary": "A tela Confirmar instalacao foi incorporada ao menu oficial de permissoes. O fix externo clean/menu_operacao_fix.js foi removido.",
+    "files_changed": [
+      "clean/permissoes.js",
+      "index-clean.html",
+      "clean/menu_operacao_fix.js",
+      "docs/MENU_CONFIRMAR_INSTALACAO_OFICIAL_20260612.md",
+      "version.json"
+    ],
+    "permission": "operacao_estoque",
+    "database_change": "none",
+    "rpc_change": "none"
   },
-  "environments": {
-    "production": {"url_mode": "index-clean.html", "tables": "real tables", "description": "ambiente real, nao usar para teste destrutivo"},
-    "staging": {"url_mode": "index-teste.html -> index-clean.html?env=staging", "tables": ["teste_equipamentos", "teste_movimentos"], "description": "usa prefixo teste_ para escritas criticas"},
-    "local": {"url_mode": "index-local.html -> index-clean.html?env=local", "default_api_url": "http://127.0.0.1:54321", "storage_key": "like_cfg_v27_local", "description": "Supabase local no PC"}
-  },
-  "important_files": {
-    "frontend_entry": "index-clean.html",
-    "api_layer": "clean/api.js",
-    "environment_layer": "clean/env.js",
-    "version_badge": "clean/version.js",
-    "permissions_and_menu_grouping": "clean/permissoes.js",
-    "menu_operation_fix": "clean/menu_operacao_fix.js",
-    "pdf_print_actions": "clean/pdf_actions.js",
-    "technician_screen": "clean/tecnicos.js",
-    "confirm_installation_screen": "clean/confirmar_instalacao.js",
-    "normal_entry": "clean/entrada.js",
-    "batch_entry": "clean/entrada_lote.js",
-    "fechamento_screen": "clean/fechamento.js",
-    "usuarios_screen": "clean/usuarios.js",
-    "auditoria_screen": "clean/auditoria.js",
-    "version_file": "version.json",
-    "changelog": "CHANGELOG.md",
-    "human_continuity_doc": "docs/CONTINUIDADE_CHATGPT.md",
-    "operational_success_doc": "docs/CONTINUIDADE_CHATGPT_ACERTOS_20260612.md"
-  },
-  "module_cache_bust": {"main": "7", "entrada": "5", "entrada_lote": "5", "saida_equipamento": "5", "equipamentos": "6", "materiais": "2", "tecnicos": "4", "relatorios": "8", "auditoria": "3", "fechamento": "5", "usuarios": "2", "permissoes": "5", "version": "7"},
-  "implemented_features": {
-    "security_trigger_execute_lockdown": {"version": "1.1.13", "migration": "security_revoke_execute_trigger_functions_20260612", "date": "2026-06-12", "behavior": "removeu execucao direta por public, anon e authenticated de quatro funcoes de trigger SECURITY DEFINER expostas via RPC", "functions": ["trg_fechamentos_sem_sobreposicao_5w2", "trg_materiais_movimentos_periodo_aberto_5w2", "trg_movimentos_periodo_aberto_5w2", "trg_user_profiles_updated_at_6c"], "validation": "public_execute=false, anon_execute=false e authenticated_execute=false; triggers permaneceram enabled", "risk": "baixo; DDL de permissao sem alteracao de dados"},
-    "materials_panel_rpc_categoria_fix": {"version": "1.1.14", "migration": "fix_rpc_materiais_painel_categoria_20260612", "behavior": "corrigiu referencia invalida a m.categoria em rpc_materiais_painel_7a5", "validation": "modelos usa categoria_estoque/controle; painel Materiais voltou a carregar"},
-    "function_search_path_mutable_fix": {"version": "1.1.15", "migration": "security_fix_function_search_path_mutable_20260612", "behavior": "setou search_path public, pg_temp em funcoes apontadas pelo Advisor"},
-    "internal_functions_lockdown_attempt": {"version": "1.1.16", "migration": "security_revoke_internal_app_trigger_execute_20260612", "behavior": "revogacao agressiva de funcoes internas revelou dependencia operacional de app_*", "lesson": "nao revogar app_* enquanto forem chamadas por RPCs operacionais"},
-    "legacy_generic_rpc_lockdown": {"version": "1.1.17", "migration": "security_revoke_legacy_generic_rpc_execute_20260612", "blocked": ["rpc_baixar_equipamento(uuid,text)", "rpc_baixar_equipamento(uuid,text,uuid)", "rpc_movimentar_material(...)"], "preserved": ["rpc_baixar_equipamento_controlado", "rpc_entrada_material", "rpc_saida_material_tecnico", "rpc_consumo_material_tecnico"]},
-    "permission_helper_restore": {"version": "1.1.18", "behavior": "restaurou EXECUTE para authenticated nas funcoes auxiliares app_* necessarias ao sistema", "functions": ["app_perfil_usuario", "app_has_permission", "app_assert_permission", "app_assert_can_operate_stock", "app_is_admin", "app_assert_admin", "app_assert_active_profile"]},
-    "fechamento_relatorio_7a5": {"version": "1.1.19", "behavior": "fechamento e relatorios migrados para rpc_relatorio_gerencial_7a5", "frontend": ["clean/fechamento.js?v=4", "clean/relatorios.js?v=8"], "user_validation": ["Fechamento -> Gerar previa", "Fechamento -> Baixar PDF", "Relatorios -> Gerar relatorio", "Relatorios -> Baixar PDF gerencial"]},
-    "relatorio_5v_lockdown": {"version": "1.1.20", "migration": "security_revoke_relatorio_gerencial_5v_20260612", "blocked": ["rpc_relatorio_gerencial_5v"], "preserved": ["rpc_relatorio_gerencial_7a5"]},
-    "diagnostic_rpc_lockdown": {"version": "1.1.21", "migration": "security_revoke_diagnostic_documentation_rpcs_20260612", "blocked": ["rpc_diagnostico_leitura_perfil_6f", "rpc_diagnostico_policies_antigas_6f", "rpc_marco_fase_7a", "rpc_revisao_final_producao_6g", "rpc_registrar_versao_estavel_6g"], "user_validation": "usuario confirmou carregamento e uso geral do sistema"},
-    "profile_test_screen_retired": {"version": "1.1.22", "migration": "security_revoke_retired_profile_test_rpcs_20260612", "frontend_change": "index-clean.html nao carrega mais clean/teste_perfis.js?v=1", "file_preserved_for_rollback": "clean/teste_perfis.js", "blocked": ["rpc_validar_matriz_perfis_6e", "rpc_listar_testes_perfis_6e", "rpc_registrar_teste_perfil_6e", "rpc_matriz_permissoes_6d"], "preserved": ["rpc_usuario_contexto_6c", "rpc_usuario_contexto_6a1", "rpc_perfis_disponiveis_6c", "rpc_listar_usuarios_perfis_6c", "rpc_salvar_usuario_perfil_6c", "rpc_alterar_status_usuario_perfil_6c"], "user_validation": "usuario confirmou que deu certo"},
-    "unused_admin_correction_rpc_lockdown": {"version": "1.1.23", "migration": "security_revoke_unused_admin_correction_rpcs_20260612", "blocked": ["rpc_corrigir_locais_divergentes_lote_5v24", "rpc_editar_equipamento_admin"], "preserved": ["rpc_corrigir_local_divergente_5v21"], "reason_preserved": "usada pela aba Auditoria em clean/auditoria.js"},
-    "fechamento_modal_ux": {"version": "1.1.24", "frontend_change": "clean/fechamento.js sem confirm/prompt; index-clean.html com clean/fechamento.js?v=5", "database_change": "none", "validation": "node --check sem erro; usuario testou e aprovou", "document": "docs/UX_FECHAMENTO_MODAL_20260612.md"},
-    "usuarios_modal_ux": {"version": "1.1.25", "frontend_change": "clean/usuarios.js sem alert/confirm/prompt; index-clean.html com clean/usuarios.js?v=2", "database_change": "none", "validation": "node --check sem erro; usuario testou e aprovou", "document": "docs/UX_USUARIOS_MODAL_20260612.md"},
-    "auditoria_modal_ux": {"version": "1.1.26", "frontend_change": "clean/auditoria.js sem confirm/prompt; index-clean.html com clean/auditoria.js?v=3", "database_change": "none", "validation": "node --check sem erro; busca nao encontrou alert/confirm/prompt em clean/auditoria.js", "document": "docs/UX_AUDITORIA_MODAL_20260612.md"},
-    "index_text_cleanup": {"version": "1.1.27", "frontend_change": "index-clean.html sem textos antigos de patch/etapas/ambiente legado", "database_change": "none", "validation": "alteracao textual; nenhum script funcional removido", "document": "docs/UX_INDEX_TEXT_CLEANUP_20260612.md"},
-    "pdf_optional_print": {"file": "clean/pdf_actions.js", "behavior": "intercepta jsPDF doc.save, mantem download e oferece imprimir/agora abrir/baixar novamente", "risk": "baixo, nao altera regras de movimentacao"},
-    "confirm_installation": {"file": "clean/confirmar_instalacao.js", "rpc_production": "rpc_confirmar_instalacao_cliente", "rpc_staging": "teste_rpc_confirmar_instalacao_cliente", "status_from": ["Com técnico", "Com tecnico", "Na rua", "Reservado"], "status_to": "Instalado cliente", "effects": ["limpa tecnico_atual", "grava cliente_atual", "grava os_atual", "local vira cliente/endereco", "insere movimento historico preservando tecnico anterior"]},
-    "technician_whatsapp_charge": {"file": "clean/tecnicos.js", "button": "Copiar cobrança WhatsApp", "old_button_preserved": "Copiar resumo", "behavior": "gera mensagem para cobrar equipamentos e materiais em posse do tecnico", "writes_to_database": false, "fallback": "textarea manual caso clipboard seja bloqueado"},
-    "normal_entry": {"file": "clean/entrada.js", "behavior": "MAC e Serial/SN separados, confirmacao interna, RPC oficial"},
-    "batch_entry": {"file": "clean/entrada_lote.js", "behavior": "pre-cadastro em lote, valida duplicidade, confirmacao interna, RPC oficial"}
-  },
-  "blocked_or_retired": {
-    "retired_frontend_scripts": ["clean/teste_perfis.js nao e mais carregado no index-clean.html, mas permanece para rollback"],
-    "blocked_rpcs": ["rpc_validar_matriz_perfis_6e", "rpc_listar_testes_perfis_6e", "rpc_registrar_teste_perfil_6e", "rpc_matriz_permissoes_6d", "rpc_diagnostico_leitura_perfil_6f", "rpc_diagnostico_policies_antigas_6f", "rpc_marco_fase_7a", "rpc_revisao_final_producao_6g", "rpc_registrar_versao_estavel_6g", "rpc_relatorio_gerencial_5v", "rpc_corrigir_locais_divergentes_lote_5v24", "rpc_editar_equipamento_admin"],
-    "preserved_even_if_advisor_lists": ["rpc_corrigir_local_divergente_5v21", "RPCs operacionais SECURITY DEFINER chamadas pelo frontend", "funcoes app_* auxiliares enquanto nao forem movidas para schema privado"]
-  },
-  "known_technical_debt": [
-    {"item": "Supabase Advisor - authenticated_security_definer_function_executable", "reason": "muitas RPCs SECURITY DEFINER aparecem callable por authenticated; parte delas e operacional e nao deve ser bloqueada sem revisar chamadas do front e permissoes internas", "best_future_fix": "separar RPC operacional legitima, funcoes internas app_assert_* e triggers restantes; revogar execucao direta apenas onde for seguro"},
-    {"item": "funcoes app_* em schema public", "reason": "necessarias para RPCs operacionais, mas idealmente deveriam ficar em schema privado", "best_future_fix": "mover para schema privado com search_path correto e preservar RPC publica como fachada"},
-    {"item": "Supabase Auth leaked password protection", "reason": "protecao contra senhas vazadas aparece desativada no Advisor", "best_future_fix": "habilitar no painel Auth do Supabase apos avaliar impacto nos usuarios"},
-    {"item": "menu_operacao_fix.js", "reason": "confirmar instalacao caiu em Outros porque permissoes.js tem lista fixa de categorias", "best_future_fix": "adicionar navConfirmarInstalacao diretamente em NAV_RULES e CATEGORIES de clean/permissoes.js"},
-    {"item": "cache-bust imports", "reason": "alguns modulos ainda importam api.js/env.js com versoes antigas", "best_future_fix": "padronizar versoes dos imports sem alterar regra de negocio"},
-    {"item": "local migrations", "reason": "ambiente local pronto no front, mas schema local completo ainda deve ser versionado em migrations", "best_future_fix": "criar supabase/migrations com schema e RPCs oficiais"}
+  "recent_versions": [
+    {"version": "1.1.28", "codename": "confirmar-instalacao-menu-oficial", "status": "aguardando teste"},
+    {"version": "1.1.27", "codename": "index-text-cleanup", "status": "aprovado"},
+    {"version": "1.1.26", "codename": "auditoria-modal-ux", "status": "aprovado"},
+    {"version": "1.1.25", "codename": "usuarios-modal-ux", "status": "aprovado"},
+    {"version": "1.1.24", "codename": "fechamento-modal-ux", "status": "aprovado"}
   ],
-  "safe_validation_policy": {
-    "allowed_without_confirmation": ["GitHub fetch_file", "GitHub search", "Supabase SELECT", "Supabase list_tables", "Supabase get_advisors"],
-    "requires_explicit_confirmation": ["UPDATE em producao", "INSERT em producao", "DELETE em producao", "migration DDL", "execucao de RPC que altera estado real", "alteracao de permissao sensivel"]
-  },
-  "handoff_prompt_short": "Leia docs/CONTINUIDADE_CHATGPT.md, docs/CONTINUIDADE_CHATGPT_ACERTOS_20260612.md e docs/ai-state.json no repo DanielCavalcante124/like-estoque antes de continuar. Aja como full stack senior, sem gambiarra, sem prompt/confirm/alert em fluxo critico, preservando historico e seguranca. Primeiro resuma o estado atual e depois continue do ponto solicitado."
+  "retired_frontend_files": [
+    "clean/teste_perfis.js nao e mais carregado no index-clean.html, mas permanece para rollback",
+    "clean/menu_operacao_fix.js removido apos incorporacao ao menu oficial"
+  ],
+  "standing_rules": [
+    "Procurar primeiro",
+    "Mexer pequeno",
+    "Preservar operacional",
+    "Testar no navegador",
+    "Documentar",
+    "Versionar",
+    "Nao bloquear RPC chamada por clean/*.js sem migrar o frontend antes",
+    "Nao revogar app_* operacionais sem refatoracao para schema privado",
+    "Atualizar cache-bust quando alterar modulo JS carregado no index-clean.html"
+  ],
+  "next_recommended_steps": [
+    "Testar se Confirmar instalacao aparece no grupo Operacao",
+    "Registrar teste aprovado no documento da etapa",
+    "Depois avaliar padronizacao de imports/cache-bust internos"
+  ],
+  "handoff_prompt_short": "Leia docs/CONTINUIDADE_CHATGPT.md, docs/CONTINUIDADE_CHATGPT_ACERTOS_20260612.md e docs/ai-state.json no repo DanielCavalcante124/like-estoque antes de continuar. Aja como full stack senior, sem gambiarra, preservando historico e seguranca. Primeiro resuma o estado atual e depois continue do ponto solicitado."
 }
