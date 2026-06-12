@@ -68,6 +68,7 @@ Me diga primeiro o estado atual do projeto e depois continue exatamente do ponto
 - Usar `SELECT` para validação sem alterar dados.
 - Não executar `UPDATE`, `INSERT`, `DELETE` em produção sem autorização clara.
 - Sempre pensar em `ativo`, status, técnico atual, cliente atual, OS e movimentos.
+- Antes de recriar RPC que junta tabelas diferentes, consultar `information_schema.columns` e confirmar nomes de colunas reais.
 
 ### 3.4 Segurança
 
@@ -76,6 +77,46 @@ Me diga primeiro o estado atual do projeto e depois continue exatamente do ponto
 - RPCs críticas devem ser executáveis apenas por usuário autenticado.
 - Verificar Supabase Advisors após migrations sensíveis.
 - Ambiente de teste não deve gravar nas tabelas reais.
+- Funções `SECURITY DEFINER` devem ter `set search_path` fixo.
+- Funções/tabelas de teste não devem ficar acessíveis em produção.
+
+### 3.5 Regra de ouro para mudanças críticas em produção
+
+Antes de aplicar alteração crítica no banco de produção, seguir este fluxo obrigatório:
+
+1. Tirar snapshot antes das tabelas oficiais.
+2. Executar teste controlado dentro de transação.
+3. Usar `rollback` no fim do teste.
+4. Tirar snapshot depois.
+5. Comparar se nenhuma tabela oficial mudou.
+6. Só aplicar alteração real se o teste passar.
+
+Tabelas oficiais mínimas para snapshot:
+
+```sql
+select jsonb_build_object(
+  'equipamentos', (select count(*) from public.equipamentos),
+  'movimentos', (select count(*) from public.movimentos),
+  'materiais_movimentos', (select count(*) from public.materiais_movimentos),
+  'materiais_saldos', (select count(*) from public.materiais_saldos),
+  'tecnicos', (select count(*) from public.tecnicos),
+  'modelos', (select count(*) from public.modelos),
+  'locais', (select count(*) from public.locais),
+  'audit_log', (select count(*) from public.audit_log)
+) as snapshot;
+```
+
+Modelo seguro de teste:
+
+```sql
+begin;
+
+-- executar teste controlado aqui
+
+rollback;
+```
+
+Nunca testar operação destrutiva diretamente sem rollback, salvo quando a intenção for aplicar a mudança definitiva.
 
 ---
 
@@ -98,9 +139,15 @@ clean/version.js
 clean/entrada.js
 clean/entrada_lote.js
 clean/saida_equipamento.js
+clean/operacao_rapida.js
+clean/lotes_saida.js
 clean/devolucao_equipamento.js
-clean/confirmar_instalacao.js
+clean/manutencao_equipamento.js
+clean/baixa_equipamento.js
+clean/historico_equipamento.js
 clean/tecnicos.js
+clean/materiais.js
+clean/relatorios.js
 clean/permissoes.js
 clean/menu_operacao_fix.js
 version.json
@@ -116,13 +163,14 @@ docs/VERSIONAMENTO.md
 
 - Usa tabelas reais.
 - Ambiente padrão do `index-clean.html`.
-- Versão atual registrada no momento deste documento: `1.1.7`.
+- Versão funcional recente registrada no projeto: `1.1.12`.
+- Scripts JS usam cache-bust em `index-clean.html`, por exemplo `clean/equipamentos.js?v=6`.
 
 ### Teste online / staging
 
 - Acessado por `index-teste.html`.
 - Redireciona para `index-clean.html?env=staging`.
-- Usa tabelas `teste_` para equipamentos e movimentos.
+- Usa tabelas `teste_` para equipamentos e movimentos quando configurado.
 - Não deve gravar em tabelas reais.
 
 ### Local
@@ -162,11 +210,16 @@ Arquivos principais:
 ```text
 clean/saida_equipamento.js
 clean/operacao_rapida.js
+clean/lotes_saida.js
 ```
 
-- Faz movimentação de saída.
-- Gera comprovantes.
-- Operação rápida permite carrinho.
+- Saída normal usa RPC oficial e fluxo protegido.
+- Operação rápida permite carrinho e saída em lote.
+- Operação rápida foi otimizada para não carregar `equipamentos` inteiro no navegador.
+- Criada RPC `rpc_operacao_rapida_busca_7a5`.
+- Busca retorna limites pequenos por consulta: 15 equipamentos e 15 materiais.
+- Confirmação da saída em lote continua em `rpc_operacao_rapida_saida_lote`.
+- Cache atual da Operação Rápida em produção: `clean/operacao_rapida.js?v=5`.
 
 ### 6.4 Impressão opcional de PDFs
 
@@ -199,7 +252,6 @@ RPCs:
 
 ```text
 rpc_confirmar_instalacao_cliente
-teste_rpc_confirmar_instalacao_cliente
 ```
 
 Observação importante:
@@ -212,50 +264,130 @@ Observação importante:
 
 Arquivo: `clean/tecnicos.js`
 
-Existe tela de técnicos que lista:
+- Tela lista equipamentos em posse, materiais em posse, valor de patrimônio, pendências e histórico recente.
+- Foi migrada para RPCs para evitar carga total no front:
+  - `rpc_tecnicos_resumo_7a5`
+  - `rpc_tecnico_detalhe_7a5`
+- Cache atual em produção: `clean/tecnicos.js?v=4`.
+- Botão `Copiar cobrança WhatsApp` existe.
+- Botão antigo `Copiar resumo` foi preservado.
 
-- equipamentos em posse;
-- materiais em posse;
-- valor de patrimônio;
-- pendências;
-- histórico recente.
+### 6.7 Materiais
 
-Foi adicionado botão:
+Arquivo: `clean/materiais.js`
 
-```text
-Copiar cobrança WhatsApp
-```
+- Migrado para RPC `rpc_materiais_painel_7a5`.
+- Não deve carregar todo o histórico `materiais_movimentos` no front.
+- Painel recebe saldos, movimentos recentes, KPIs e limites.
+- Cache atual em produção: `clean/materiais.js?v=2`.
 
-Ele gera mensagem cobrando equipamentos e materiais em posse do técnico, pedindo retorno sobre:
+### 6.8 Relatórios gerenciais
 
-1. o que foi instalado, com cliente/endereço e OS;
-2. o que ainda está com o técnico;
-3. o que será devolvido;
-4. item perdido, danificado ou sem identificação.
+Arquivo: `clean/relatorios.js`
 
-O botão antigo `Copiar resumo` foi preservado.
+- Migrado para RPC `rpc_relatorio_gerencial_7a5`.
+- KPIs calculados no banco.
+- Listas operacionais limitadas no banco.
+- PDF/CSV usam lista carregada, sem puxar histórico gigante.
+- Cache atual em produção: `clean/relatorios.js?v=8`.
 
 ---
 
 ## 7. Validações recentes
 
-### Cobrança WhatsApp
+### 7.1 Quarentena segura dos objetos de teste — 2026-06-11
+
+Foram bloqueadas as funções e tabelas de teste sem apagar imediatamente.
+
+Ações corretas aplicadas:
+
+- Revogar execução de funções `teste_*` para `public`, `anon` e `authenticated`.
+- Revogar acesso de tabelas `teste_*` para `public`, `anon` e `authenticated`.
+- Habilitar RLS nas tabelas de teste.
+- Remover policies permissivas das tabelas de teste.
+- Não apagar ainda sem validação manual de produção.
+
+Validações feitas:
+
+- `teste_rpc_*` não apareceu no código do GitHub.
+- `teste_equipamentos` não apareceu no código do GitHub.
+- `teste_movimentos` não apareceu no código do GitHub.
+- Funções oficiais do banco não referenciam `teste_rpc_`, `teste_equipamentos` ou `teste_movimentos`.
+- As funções oficiais críticas continuaram existindo e liberadas para `authenticated`.
+
+Resultado esperado após quarentena:
+
+```text
+anon_execute = false
+authenticated_execute = false
+```
+
+### 7.2 Erro corrigido na aba Técnicos — 2026-06-11
+
+Erro encontrado:
+
+```text
+column "data" does not exist
+```
+
+Causa:
+
+- `movimentos` tem `data` e `created_at`.
+- `materiais_movimentos` tem `created_at`, mas não tem `data`.
+- A RPC `rpc_tecnico_detalhe_7a5` tentou usar `data` na parte de materiais.
+
+Correção aplicada:
+
+```sql
+created_at as data
+```
+
+na parte de histórico de materiais.
+
+Regra aprendida:
+
+Antes de recriar RPC que junta tabelas diferentes, consultar `information_schema.columns` e confirmar nomes de colunas reais.
+
+### 7.3 Teste de rollback e snapshot — 2026-06-11
+
+Foi validado que o Supabase aceita transação com rollback pela ferramenta SQL:
+
+```sql
+begin;
+-- teste
+rollback;
+```
+
+Snapshot validado sem alteração:
+
+```text
+equipamentos: 161 -> 161
+movimentos: 175 -> 175
+materiais_movimentos: 14 -> 14
+materiais_saldos: 8 -> 8
+tecnicos: 11 -> 11
+modelos: 31 -> 31
+locais: 8 -> 8
+audit_log: 219 -> 219
+```
+
+Resultado:
+
+```text
+sem_alteracao = true
+```
+
+### 7.4 Cobrança WhatsApp
 
 Validação sem alteração de registros:
 
-- Produção carrega `clean/tecnicos.js?v=3`.
+- Produção carregava `clean/tecnicos.js?v=3` no momento da validação original.
+- Depois foi atualizado para `clean/tecnicos.js?v=4` por causa da otimização de Técnicos.
 - Botão `Copiar cobrança WhatsApp` existe.
 - Botão `Copiar resumo` foi mantido.
 - A mensagem usa clipboard e fallback em `textarea`, sem `prompt()`.
-- Colunas principais existem.
-- Havia no momento da validação:
-  - 11 técnicos cadastrados;
-  - 5 equipamentos em posse;
-  - 2 materiais em posse;
-  - 4 técnicos com equipamento;
-  - 2 técnicos com material.
 
-### Menu Confirmar instalação
+### 7.5 Menu Confirmar instalação
 
 Validação:
 
@@ -280,7 +412,8 @@ Ao alterar produção:
 2. atualizar cache-bust no `index-clean.html` quando necessário;
 3. atualizar `version.json` quando a mudança for relevante;
 4. registrar em documentação se for mudança de processo ou arquitetura;
-5. testar com leitura e, se necessário, ambiente de teste.
+5. testar com leitura e, se necessário, ambiente de teste;
+6. se for alteração crítica no banco, usar transação com rollback e snapshot antes/depois.
 
 ---
 
@@ -289,10 +422,11 @@ Ao alterar produção:
 - Não recomeçar sistema do zero sem necessidade.
 - Não criar patch tipo `fix_final`, `patch27`, `guard`, `loader`.
 - Não sobrescrever tela inteira sem entender dependências.
-- Não mexer em banco de produção para testar ideia.
+- Não mexer em banco de produção para testar ideia sem transação e rollback.
 - Não trocar Supabase por outra solução sem motivo técnico forte.
 - Não remover histórico.
 - Não criar controle de kit, pois o usuário já recusou essa ideia.
+- Não apagar objetos de teste direto sem primeiro bloquear, testar e validar dependência.
 
 ---
 
@@ -308,6 +442,11 @@ Ao alterar produção:
 5. Criar migrations completas para ambiente local Supabase.
 6. Atualizar textos antigos do `index-clean.html` que ainda mencionam patches antigos.
 7. Padronizar imports para a versão mais recente de `api.js` e `env.js`.
+8. Revisar funções com `function_search_path_mutable` apontadas pelo Supabase Advisor.
+9. Revisar triggers `SECURITY DEFINER` executáveis por `anon` apontados pelo Advisor.
+10. Depois dos testes manuais, apagar definitivamente objetos `teste_*` se nada quebrar.
+11. Revisar índices de FKs sem cobertura apontados pelo Advisor.
+12. Revisar Auditoria/Dashboard se ficarem pesados em produção.
 
 ---
 
@@ -326,4 +465,29 @@ Antes de alterar produção:
 8. Testar sem quebrar fluxo existente.
 9. Informar exatamente o que mudou.
 10. Registrar no versionamento quando fizer sentido.
+11. Para operação crítica, testar com begin/rollback e snapshot antes/depois.
 ```
+
+---
+
+## 12. Limites do que o assistente consegue testar sozinho
+
+O assistente consegue testar com segurança:
+
+- Catálogo do banco.
+- Permissões de funções.
+- Grants e policies.
+- Existência de RPCs oficiais.
+- Definição de funções.
+- Snapshots antes/depois.
+- Testes transacionais com rollback.
+
+O assistente não consegue testar sozinho:
+
+- Clique real no navegador.
+- Login real pela interface.
+- PDF visual baixado.
+- Copiar WhatsApp no navegador.
+- Fluxos visuais que dependem de DOM/interação real do usuário.
+
+Quando o teste depender de navegador real, o usuário deve testar manualmente e enviar tela/erro exato.
