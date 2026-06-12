@@ -132,3 +132,17 @@ Equipamentos
 ```
 
 Se esses fluxos abrirem normalmente, a etapa está validada.
+
+## Teste aprovado
+
+Data: 2026-06-12.
+
+O usuário informou que, após o bloqueio do lote de diagnóstico/documentação, o sistema carregou normalmente as informações do banco.
+
+Resultado:
+
+```text
+Teste aprovado.
+Front continua carregando dados do Supabase normalmente.
+Lote diagnostic_documentation pode permanecer bloqueado.
+```
