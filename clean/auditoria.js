@@ -29,8 +29,45 @@ function css(){
   if($('audCss')) return;
   const s = document.createElement('style');
   s.id = 'audCss';
-  s.textContent = `.aud-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.aud-kpi{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:12px}.aud-kpi small{display:block;color:#64748b;font-weight:800}.aud-kpi b{font-size:22px}.aud-kpi.critica{border-color:#dc2626}.aud-kpi.alta{border-color:#f97316}.aud-kpi.media{border-color:#eab308}.aud-kpi.baixa{border-color:#64748b}.aud-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.aud-card-line{border:1px solid #e5e7eb;border-radius:14px;padding:10px;margin-bottom:8px}.aud-card-line b{display:block}.aud-card-line small{color:#64748b}.aud-actions{display:flex;gap:8px;flex-wrap:wrap}.aud-correction{border:1px solid #dbe4ef;border-radius:18px;padding:14px;background:#f8fafc}.aud-correction .item{background:#fff}.sev{font-weight:900;border-radius:999px;padding:4px 8px;display:inline-block}.sev.Crítica{background:#fee2e2;color:#991b1b}.sev.Alta{background:#ffedd5;color:#9a3412}.sev.Média{background:#fef9c3;color:#854d0e}.sev.Baixa{background:#f1f5f9;color:#334155}.mini-btn{padding:6px 8px;border-radius:9px;font-size:12px}@media(max-width:900px){.aud-kpis{grid-template-columns:repeat(2,1fr)}.aud-grid{grid-template-columns:1fr}.aud-actions button{width:100%}}`;
+  s.textContent = `.aud-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.aud-kpi{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:12px}.aud-kpi small{display:block;color:#64748b;font-weight:800}.aud-kpi b{font-size:22px}.aud-kpi.critica{border-color:#dc2626}.aud-kpi.alta{border-color:#f97316}.aud-kpi.media{border-color:#eab308}.aud-kpi.baixa{border-color:#64748b}.aud-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.aud-card-line{border:1px solid #e5e7eb;border-radius:14px;padding:10px;margin-bottom:8px}.aud-card-line b{display:block}.aud-card-line small{color:#64748b}.aud-actions{display:flex;gap:8px;flex-wrap:wrap}.aud-correction{border:1px solid #dbe4ef;border-radius:18px;padding:14px;background:#f8fafc}.aud-correction .item{background:#fff}.sev{font-weight:900;border-radius:999px;padding:4px 8px;display:inline-block}.sev.Crítica{background:#fee2e2;color:#991b1b}.sev.Alta{background:#ffedd5;color:#9a3412}.sev.Média{background:#fef9c3;color:#854d0e}.sev.Baixa{background:#f1f5f9;color:#334155}.mini-btn{padding:6px 8px;border-radius:9px;font-size:12px}.aud-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}.aud-modal{width:min(580px,100%);background:#fff;border-radius:18px;border:1px solid #e5e7eb;box-shadow:0 24px 70px rgba(15,23,42,.28);padding:18px}.aud-modal h3{margin:0 0 8px}.aud-modal p{margin:0 0 12px;color:#475569;line-height:1.45}.aud-modal label{display:block;font-weight:800;margin-top:10px;color:#334155}.aud-modal textarea,.aud-modal input{width:100%;box-sizing:border-box;margin-top:6px}.aud-modal textarea{resize:vertical;min-height:130px}.aud-modal-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}@media(max-width:900px){.aud-kpis{grid-template-columns:repeat(2,1fr)}.aud-grid{grid-template-columns:1fr}.aud-actions button,.aud-modal-actions button{width:100%}}`;
   document.head.appendChild(s);
+}
+function modal({ titulo, texto='', okText='Confirmar', cancelText='Cancelar', danger=false, fields=[] }){
+  css();
+  return new Promise(resolve => {
+    $('audModalBackdrop')?.remove();
+    const back = document.createElement('div');
+    back.id = 'audModalBackdrop';
+    back.className = 'aud-modal-backdrop';
+    back.innerHTML = `<div class="aud-modal" role="dialog" aria-modal="true"><h3>${esc(titulo)}</h3>${texto ? `<p>${esc(texto)}</p>` : ''}<div id="audModalFields"></div><div class="aud-modal-actions"><button id="audModalCancel" class="secondary" type="button">${esc(cancelText)}</button><button id="audModalOk" class="${danger ? 'danger' : 'primary'}" type="button">${esc(okText)}</button></div></div>`;
+    document.body.appendChild(back);
+    const values = {};
+    fields.forEach(f => {
+      const id = `audModal_${f.name}`;
+      const tag = f.type === 'textarea' ? 'textarea' : 'input';
+      const html = tag === 'textarea'
+        ? `<label for="${esc(id)}">${esc(f.label)}</label><textarea id="${esc(id)}" placeholder="${esc(f.placeholder || '')}">${esc(f.value || '')}</textarea>`
+        : `<label for="${esc(id)}">${esc(f.label)}</label><input id="${esc(id)}" type="${esc(f.type || 'text')}" placeholder="${esc(f.placeholder || '')}">`;
+      back.querySelector('#audModalFields').insertAdjacentHTML('beforeend', html);
+      const el = back.querySelector(`#${id}`);
+      if(tag === 'input') el.value = f.value || '';
+      values[f.name] = el;
+    });
+    const close = result => { back.remove(); resolve(result); };
+    back.querySelector('#audModalCancel').onclick = () => close({ ok:false, values:{} });
+    back.querySelector('#audModalOk').onclick = () => close({ ok:true, values:Object.fromEntries(Object.entries(values).map(([k,el]) => [k, (el.value || '').trim()])) });
+    back.addEventListener('keydown', ev => { if(ev.key === 'Escape') close({ ok:false, values:{} }); });
+    back.querySelector('textarea,input,button')?.focus();
+  });
+}
+async function mostrarTextoCopiavel(texto){
+  await modal({
+    titulo: 'Copiar resumo da auditoria',
+    texto: 'Não foi possível copiar automaticamente. Selecione o texto abaixo e copie manualmente.',
+    okText: 'Fechar',
+    cancelText: 'Cancelar',
+    fields: [{ name:'texto', label:'Resumo para copiar', type:'textarea', value:texto }]
+  });
 }
 function inject(){
   css();
@@ -253,7 +290,13 @@ async function corrigirLocal(){
   if(!d) return msg('Selecione uma divergência de local.', 'warn');
   if(!novoLocal) return msg('Selecione o novo local.', 'warn');
   if(motivo.length < 8) return msg('Informe motivo com pelo menos 8 caracteres.', 'warn');
-  if(!confirm(`Corrigir ${d.codigo}: local "${d.local_atual || '-'}" para "${novoLocal}"?`)) return;
+  const r = await modal({
+    titulo: 'Confirmar correção de local',
+    texto: `Corrigir ${d.codigo}: local "${d.local_atual || '-'}" para "${novoLocal}"? A operação será registrada no histórico de auditoria.`,
+    okText: 'Corrigir local',
+    danger: true
+  });
+  if(!r.ok) return;
   try{
     msg('Corrigindo local via RPC...', 'warn');
     const result = await call('rpc_corrigir_local_divergente_5v21', {
@@ -289,7 +332,13 @@ function resumoTexto(){
 }
 async function copiarResumo(){
   if(!S.rel) return msg('Gere a auditoria primeiro.', 'warn');
-  try{ await navigator.clipboard.writeText(resumoTexto()); msg('Resumo de auditoria copiado para WhatsApp.', 'ok'); }catch(e){ window.prompt('Copie o resumo:', resumoTexto()); }
+  const texto = resumoTexto();
+  try{
+    await navigator.clipboard.writeText(texto);
+    msg('Resumo de auditoria copiado para WhatsApp.', 'ok');
+  }catch(e){
+    await mostrarTextoCopiavel(texto);
+  }
 }
 function baixarCsv(){
   if(!S.rows.length) return msg('Sem divergências para exportar.', 'warn');
