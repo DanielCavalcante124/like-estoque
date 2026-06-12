@@ -158,3 +158,43 @@ E classificar:
 ## Alerta importante
 
 O Supabase Advisor pode continuar mostrando `authenticated_security_definer_function_executable` para essas funções auxiliares. Esse alerta é real, mas neste momento o sistema depende dessas permissões. A correção estrutural profissional é mover auxiliares para schema interno fora da API exposta, não simplesmente revogar `EXECUTE` em produção.
+
+---
+
+## Lição aplicada depois do erro: `rpc_relatorio_gerencial_5v`
+
+Data: 2026-06-12.
+
+Foi planejado bloquear a RPC antiga `rpc_relatorio_gerencial_5v`, mas a primeira busca mostrou que ainda existia dependência no código.
+
+Dependências encontradas antes do bloqueio:
+
+```text
+clean/fechamento.js chamava rpc_relatorio_gerencial_5v para gerar previa de fechamento.
+clean/relatorios_pdf_js.js tambem chamava rpc_relatorio_gerencial_5v, embora parecesse arquivo legado/nao carregado no index-clean.html.
+```
+
+Ação correta tomada antes do bloqueio:
+
+```text
+1. Migrado clean/fechamento.js para rpc_relatorio_gerencial_7a5 com limites de performance.
+2. Atualizado cache-bust em index-clean.html para clean/fechamento.js?v=4.
+3. Usuario testou Fechamento no navegador e confirmou funcionamento.
+4. Migrado clean/relatorios_pdf_js.js para rpc_relatorio_gerencial_7a5 com limites de performance.
+5. So depois disso foi aplicada a migration security_revoke_relatorio_gerencial_5v_20260612.
+```
+
+Validação após bloqueio:
+
+```text
+rpc_relatorio_gerencial_5v: authenticated=false, anon=false, public=false
+rpc_relatorio_gerencial_7a5: authenticated=true, anon=false, public=false
+Advisor nao listou mais rpc_relatorio_gerencial_5v.
+```
+
+Regra reforçada:
+
+```text
+Nunca bloquear uma RPC antiga apenas porque parece substituida.
+Antes, buscar no GitHub, ler arquivo ativo, verificar se existe arquivo legado ainda carregado, migrar dependencias, testar navegador e so entao aplicar REVOKE.
+```
