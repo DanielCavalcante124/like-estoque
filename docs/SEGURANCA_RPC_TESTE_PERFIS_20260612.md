@@ -128,6 +128,21 @@ Equipamentos
 
 Também confirmar que o menu `Teste perfis` não aparece mais.
 
+## Teste aprovado
+
+Data: 2026-06-12.
+
+O usuário informou que a alteração deu certo após a aposentadoria da tela `Teste perfis` e o bloqueio das RPCs 6E/6D.
+
+Resultado:
+
+```text
+Teste aprovado.
+Sistema continuou funcionando.
+Tela Teste perfis aposentada com sucesso.
+RPCs 6E/6D podem permanecer bloqueadas.
+```
+
 ## Rollback seguro
 
 Se for necessário restaurar a tela:
