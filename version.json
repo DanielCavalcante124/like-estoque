@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.20",
+  "version": "1.1.21",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "relatorio-5v-lockdown",
-  "summary": "Migrado PDF legado de relatorios para rpc_relatorio_gerencial_7a5 e bloqueada chamada direta da rpc_relatorio_gerencial_5v para usuarios autenticados apos validacao de dependencias.",
+  "codename": "diagnostic-rpc-lockdown",
+  "summary": "Bloqueadas RPCs antigas de diagnostico e documentacao nao usadas pelo frontend nem por outras funcoes publicas, preservando endpoints operacionais.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -24,8 +24,14 @@
     "tecnicos": "3",
     "fechamento": "4",
     "relatorios_pdf_js": "7a5",
-    "database_migration": "security_revoke_relatorio_gerencial_5v_20260612",
-    "frontend_change": "clean/relatorios_pdf_js.js usa rpc_relatorio_gerencial_7a5",
-    "rpc_locked": "rpc_relatorio_gerencial_5v"
+    "database_migration": "security_revoke_diagnostic_documentation_rpcs_20260612",
+    "rpc_locked_group": "diagnostic_documentation",
+    "rpc_locked": [
+      "rpc_diagnostico_leitura_perfil_6f",
+      "rpc_diagnostico_policies_antigas_6f",
+      "rpc_marco_fase_7a",
+      "rpc_revisao_final_producao_6g",
+      "rpc_registrar_versao_estavel_6g"
+    ]
   }
 }
