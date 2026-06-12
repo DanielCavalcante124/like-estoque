@@ -10,6 +10,247 @@ Formato adotado: versionamento semântico.
 
 ---
 
+## [1.1.25] - 2026-06-12
+
+### Alterado
+
+- Substituídos `alert()`, `confirm()` e `prompt()` da aba **Usuários** por modal interno responsivo.
+- Atualizado cache-bust do `index-clean.html` para `clean/usuarios.js?v=2`.
+- Mantidas as mesmas RPCs administrativas, sem alteração no banco.
+
+### Preservado
+
+- `rpc_usuario_contexto_6c`
+- `rpc_perfis_disponiveis_6c`
+- `rpc_listar_usuarios_perfis_6c`
+- `rpc_salvar_usuario_perfil_6c`
+- `rpc_alterar_status_usuario_perfil_6c`
+
+### Validação
+
+- Validado `node --check clean/usuarios.js` sem erro de sintaxe.
+- Busca no GitHub não encontrou mais `alert`, `confirm` ou `prompt` em `clean/usuarios.js`.
+- Usuário testou a tela Usuários e confirmou funcionamento correto.
+- Documentado em `docs/UX_USUARIOS_MODAL_20260612.md`.
+
+---
+
+## [1.1.24] - 2026-06-12
+
+### Alterado
+
+- Substituídos `confirm()` e `prompt()` da aba **Fechamento** por modal interno responsivo.
+- Atualizado cache-bust do `index-clean.html` para `clean/fechamento.js?v=5`.
+- Mantidas as mesmas RPCs de fechamento, sem alteração no banco.
+
+### Preservado
+
+- `rpc_validar_periodo_fechamento_5w2`
+- `rpc_relatorio_gerencial_7a5`
+- `rpc_auditoria_divergencias_5v1`
+- `rpc_criar_fechamento_operacional_5w`
+- `rpc_cancelar_fechamento_operacional_5w1`
+- `rpc_listar_fechamentos_operacionais_5w`
+
+### Validação
+
+- Validado `node --check clean/fechamento.js` sem erro de sintaxe.
+- Busca no GitHub não encontrou mais `confirm` ou `prompt` em `clean/fechamento.js`.
+- Usuário testou a aba Fechamento e confirmou funcionamento correto.
+- Documentado em `docs/UX_FECHAMENTO_MODAL_20260612.md`.
+
+---
+
+## [1.1.23] - 2026-06-12
+
+### Segurança
+
+- Aplicada migration `security_revoke_unused_admin_correction_rpcs_20260612`.
+- Bloqueada execução direta para `authenticated` das RPCs antigas sem uso ativo:
+  - `rpc_corrigir_locais_divergentes_lote_5v24`
+  - `rpc_editar_equipamento_admin`
+
+### Preservado
+
+- Mantida `rpc_corrigir_local_divergente_5v21`, pois a aba **Auditoria** ainda usa essa RPC no fluxo de correção guiada de local inválido.
+
+### Validação
+
+- Confirmado que as duas RPCs bloqueadas ficaram `authenticated=false`, `anon=false` e `public=false`.
+- Confirmado que `rpc_corrigir_local_divergente_5v21` continuou `authenticated=true`, `anon=false` e `public=false`.
+- Supabase Advisor deixou de listar as duas RPCs bloqueadas e continuou listando a RPC preservada, como esperado.
+- Documentado em `docs/SEGURANCA_RPC_CORRECAO_ADMIN_20260612.md`.
+
+---
+
+## [1.1.22] - 2026-06-12
+
+### Segurança
+
+- Aposentada a tela **Teste perfis**.
+- Removido carregamento de `clean/teste_perfis.js?v=1` do `index-clean.html`.
+- Arquivo `clean/teste_perfis.js` preservado no repositório para rollback.
+- Aplicada migration `security_revoke_retired_profile_test_rpcs_20260612`.
+
+### Bloqueado
+
+- `rpc_validar_matriz_perfis_6e`
+- `rpc_listar_testes_perfis_6e`
+- `rpc_registrar_teste_perfil_6e`
+- `rpc_matriz_permissoes_6d`
+
+### Preservado
+
+- `rpc_usuario_contexto_6c`
+- `rpc_usuario_contexto_6a1`
+- `rpc_perfis_disponiveis_6c`
+- `rpc_listar_usuarios_perfis_6c`
+- `rpc_salvar_usuario_perfil_6c`
+- `rpc_alterar_status_usuario_perfil_6c`
+
+### Validação
+
+- Confirmado que RPCs 6E/6D bloqueadas ficaram `authenticated=false`, `anon=false` e `public=false`.
+- Usuário testou o sistema após remoção da tela e confirmou funcionamento correto.
+- Documentado em `docs/SEGURANCA_RPC_TESTE_PERFIS_20260612.md`.
+
+---
+
+## [1.1.21] - 2026-06-12
+
+### Segurança
+
+- Aplicada migration `security_revoke_diagnostic_documentation_rpcs_20260612`.
+- Bloqueadas RPCs de diagnóstico/documentação que não fazem parte do uso operacional do sistema:
+  - `rpc_diagnostico_leitura_perfil_6f`
+  - `rpc_diagnostico_policies_antigas_6f`
+  - `rpc_marco_fase_7a`
+  - `rpc_revisao_final_producao_6g`
+  - `rpc_registrar_versao_estavel_6g`
+
+### Validação
+
+- Confirmado que as RPCs ficaram `authenticated=false`, `anon=false` e `public=false`.
+- Usuário testou carregamento e uso geral do sistema após o bloqueio e confirmou funcionamento correto.
+- Documentado em `docs/SEGURANCA_RPC_DIAGNOSTICO_20260612.md`.
+
+---
+
+## [1.1.20] - 2026-06-12
+
+### Segurança
+
+- Bloqueada `rpc_relatorio_gerencial_5v` após migração do frontend para `rpc_relatorio_gerencial_7a5`.
+- Aplicada migration `security_revoke_relatorio_gerencial_5v_20260612`.
+
+### Alterado
+
+- `clean/fechamento.js` passou a usar `rpc_relatorio_gerencial_7a5`.
+- `clean/relatorios_pdf_js.js` também foi migrado para `rpc_relatorio_gerencial_7a5` por segurança, mesmo não sendo o caminho principal carregado no `index-clean.html`.
+
+### Validação
+
+- Confirmado que `rpc_relatorio_gerencial_5v` ficou `authenticated=false`, `anon=false` e `public=false`.
+- Confirmado que `rpc_relatorio_gerencial_7a5` permaneceu `authenticated=true` e `anon=false`.
+- Usuário testou Fechamento, PDF e Relatórios após a migração.
+
+---
+
+## [1.1.19] - 2026-06-12
+
+### Alterado
+
+- Fechamento e relatórios gerenciais migrados para a RPC oficial `rpc_relatorio_gerencial_7a5`.
+- Atualizado cache-bust de `clean/fechamento.js` para `v=4`.
+- Atualizado cache-bust de `clean/relatorios.js` para `v=8`.
+
+### Validação
+
+- Usuário testou:
+  - Fechamento -> Gerar prévia
+  - Fechamento -> Baixar PDF
+  - Relatórios -> Gerar relatório
+  - Relatórios -> Baixar PDF gerencial
+
+---
+
+## [1.1.18] - 2026-06-12
+
+### Corrigido
+
+- Restauradas permissões de execução para `authenticated` nas funções auxiliares `app_*` necessárias às RPCs operacionais.
+- Correção aplicada após erro `permission denied for function app_has_permission`.
+
+### Restaurado
+
+- `app_perfil_usuario()`
+- `app_has_permission(text)`
+- `app_assert_permission(text)`
+- `app_assert_can_operate_stock()`
+- `app_is_admin()`
+- `app_assert_admin()`
+- `app_assert_active_profile()`
+
+### Regra reforçada
+
+- Não revogar `EXECUTE` de funções auxiliares `app_*` chamadas por RPCs operacionais sem antes refatorar arquitetura para schema privado.
+
+---
+
+## [1.1.17] - 2026-06-12
+
+### Segurança
+
+- Aplicada migration `security_revoke_legacy_generic_rpc_execute_20260612`.
+- Bloqueada execução direta de RPCs legadas/genéricas sem fluxo operacional oficial.
+
+### Bloqueado
+
+- `rpc_baixar_equipamento(uuid,text)`
+- `rpc_baixar_equipamento(uuid,text,uuid)`
+- `rpc_movimentar_material(...)`
+
+### Preservado
+
+- `rpc_baixar_equipamento_controlado`
+- `rpc_entrada_material`
+- `rpc_saida_material_tecnico`
+- `rpc_consumo_material_tecnico`
+
+---
+
+## [1.1.16] - 2026-06-12
+
+### Segurança
+
+- Aplicada migration `security_revoke_internal_app_trigger_execute_20260612`.
+- Revogadas permissões diretas de algumas funções internas e triggers.
+- Esta etapa revelou dependência operacional das funções auxiliares `app_*`.
+
+### Observação
+
+- A revogação de funções `app_*` foi agressiva demais e causou erro em RPCs operacionais.
+- Correção registrada posteriormente na versão `1.1.18`.
+
+---
+
+## [1.1.15] - 2026-06-12
+
+### Segurança
+
+- Aplicada migration `security_fix_function_search_path_mutable_20260612`.
+- Definido `search_path = public, pg_temp` em funções apontadas pelo Supabase Advisor.
+
+### Ajustado
+
+- `app_normalizar_bip_7a5(text)`
+- `app_gerar_codigo_inventario_7a5()`
+- `app_hash_termo_inventario_7a5_3(uuid)`
+- `teste_gerar_codigo(text)`
+- `teste_rpc_ping()`
+
+---
+
 ## [1.1.14] - 2026-06-12
 
 ### Corrigido
