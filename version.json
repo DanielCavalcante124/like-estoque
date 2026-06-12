@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.15",
+  "version": "1.1.16",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "security-function-search-path",
-  "summary": "Corrigido alerta function_search_path_mutable do Supabase Advisor fixando search_path em funcoes app_* e teste_* apontadas pelo linter.",
+  "codename": "database-permissions-hardening",
+  "summary": "Ajuste controlado de permissoes em funcoes auxiliares do banco, preservando as RPCs operacionais usadas pelo sistema.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -22,6 +22,6 @@
     "entrada": "5",
     "entrada_lote": "5",
     "tecnicos": "3",
-    "database_migration": "security_fix_function_search_path_mutable_20260612"
+    "database_migration": "security_revoke_internal_app_trigger_execute_20260612"
   }
 }
