@@ -5,7 +5,7 @@
     "supabase_project_id": "yuyeyawigbbjtzghkbbr",
     "hosting": "GitHub Pages + Supabase",
     "primary_entry": "index-clean.html",
-    "current_production_version": "1.1.25",
+    "current_production_version": "1.1.26",
     "current_staging_version": "1.2.0-beta.9",
     "current_local_version": "1.3.0-local.8",
     "last_sync_date": "2026-06-12"
@@ -127,7 +127,7 @@
     "materiais": "2",
     "tecnicos": "4",
     "relatorios": "8",
-    "auditoria": "2",
+    "auditoria": "3",
     "fechamento": "5",
     "usuarios": "2",
     "permissoes": "5",
@@ -276,6 +276,13 @@
       "validation": "node --check sem erro; usuario testou e aprovou",
       "document": "docs/UX_USUARIOS_MODAL_20260612.md"
     },
+    "auditoria_modal_ux": {
+      "version": "1.1.26",
+      "frontend_change": "clean/auditoria.js sem confirm/prompt; index-clean.html com clean/auditoria.js?v=3",
+      "database_change": "none",
+      "validation": "node --check sem erro; busca nao encontrou alert/confirm/prompt em clean/auditoria.js",
+      "document": "docs/UX_AUDITORIA_MODAL_20260612.md"
+    },
     "pdf_optional_print": {
       "file": "clean/pdf_actions.js",
       "behavior": "intercepta jsPDF doc.save, mantem download e oferece imprimir/agora abrir/baixar novamente",
@@ -351,11 +358,6 @@
       "item": "funcoes app_* em schema public",
       "reason": "necessarias para RPCs operacionais, mas idealmente deveriam ficar em schema privado",
       "best_future_fix": "mover para schema privado com search_path correto e preservar RPC publica como fachada"
-    },
-    {
-      "item": "Auditoria UX",
-      "reason": "ainda pode conter dialogos nativos ou fluxo menos padronizado",
-      "best_future_fix": "aplicar modal interno sem alterar RPC/performance nesta etapa"
     },
     {
       "item": "Supabase Auth leaked password protection",
