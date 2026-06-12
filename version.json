@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.17",
+  "version": "1.1.18",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "legacy-rpc-lockdown",
-  "summary": "Bloqueada chamada direta de RPCs antigas ou genericas, preservando os endpoints operacionais atuais usados pelo frontend.",
+  "codename": "permission-helper-restore",
+  "summary": "Restaurada permissao authenticated nas funcoes auxiliares de permissao app_* necessarias para as RPCs operacionais, corrigindo erro permission denied for function app_has_permission.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -22,6 +22,6 @@
     "entrada": "5",
     "entrada_lote": "5",
     "tecnicos": "3",
-    "database_migration": "security_revoke_legacy_generic_rpc_execute_20260612"
+    "database_fix": "restore_permission_helper_execute_20260612"
   }
 }
