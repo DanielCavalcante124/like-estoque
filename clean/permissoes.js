@@ -28,7 +28,8 @@ const NAV_RULES = [
   { selector:'#navEntradaLoteClean', perm:'operacao_estoque' },
   { selector:'#navRetornoSemCadastroClean', perm:'operacao_estoque' },
   { selector:'#navSaidaClean', perm:'operacao_estoque' },
-  { selector:'#navDevolucaoClean', perm:'operacao_estoque' }
+  { selector:'#navDevolucaoClean', perm:'operacao_estoque' },
+  { selector:'#navConfirmarInstalacao', perm:'operacao_estoque' }
 ];
 
 const TEXT_RULES = [
@@ -38,12 +39,13 @@ const TEXT_RULES = [
   { text:'impacto fechamento', perm:'fechamento' }, { text:'fechamento', perm:'fechamento' },
   { text:'auditoria', perm:'auditoria' }, { text:'relatórios', perm:'relatorios' }, { text:'relatorios', perm:'relatorios' },
   { text:'baixa', perm:'baixa' }, { text:'manutenção', perm:'manutencao' }, { text:'manutencao', perm:'manutencao' },
-  { text:'materiais', perm:'materiais' }, { text:'equipamentos', perm:'equipamentos' }, { text:'cadastros', perm:'cadastros' }
+  { text:'materiais', perm:'materiais' }, { text:'equipamentos', perm:'equipamentos' }, { text:'cadastros', perm:'cadastros' },
+  { text:'confirmar instalação', perm:'operacao_estoque' }, { text:'confirmar instalacao', perm:'operacao_estoque' }
 ];
 
 const CATEGORIES = [
   { key:'principal', label:'Principal', emoji:'🏠', open:true, ids:[], texts:['dashboard'] },
-  { key:'operacao', label:'Operação', emoji:'⚡', open:true, ids:['navOperacaoRapidaClean','navEntradaClean','navEntradaLoteClean','navSaidaClean','navLotesSaidaClean','navDevolucaoClean','navRetornoSemCadastroClean'], texts:['operação rápida','operacao rapida','entrada','entrada em lote','saída','saida','saída em lote','saida em lote','lotes','devolução','devolucao','retorno sem cadastro'] },
+  { key:'operacao', label:'Operação', emoji:'⚡', open:true, ids:['navOperacaoRapidaClean','navEntradaClean','navEntradaLoteClean','navSaidaClean','navLotesSaidaClean','navDevolucaoClean','navRetornoSemCadastroClean','navConfirmarInstalacao'], texts:['operação rápida','operacao rapida','entrada','entrada em lote','saída','saida','saída em lote','saida em lote','lotes','devolução','devolucao','retorno sem cadastro','confirmar instalação','confirmar instalacao'] },
   { key:'patrimonio', label:'Patrimônio', emoji:'📦', open:false, ids:['navEquipamentosClean','navHistoricoClean','navManutencaoClean','navBaixaClean'], texts:['equipamentos','histórico','historico','manutenção','manutencao','baixa'] },
   { key:'materiais', label:'Materiais', emoji:'🧰', open:false, ids:['navMateriaisClean'], texts:['materiais'] },
   { key:'cadastros', label:'Cadastros', emoji:'📝', open:false, ids:['navTecnicosClean'], texts:['cadastros','técnicos','tecnicos'] },
