@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.13",
+  "version": "1.1.14",
   "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "security-trigger-execute-lockdown",
-  "summary": "Bloqueada execucao direta via RPC de quatro funcoes de trigger SECURITY DEFINER que estavam acessiveis para public, anon e authenticated.",
+  "codename": "materiais-rpc-categoria-corrigida",
+  "summary": "Corrigida RPC do painel de materiais removendo referencia invalida a coluna m.categoria na tabela modelos; a coluna correta usada e categoria_estoque.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -22,6 +22,6 @@
     "entrada": "5",
     "entrada_lote": "5",
     "tecnicos": "3",
-    "database_migration": "security_revoke_execute_trigger_functions_20260612"
+    "database_migration": "fix_rpc_materiais_painel_categoria_20260612"
   }
 }
