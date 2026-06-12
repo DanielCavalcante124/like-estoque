@@ -198,3 +198,31 @@ Regra reforçada:
 Nunca bloquear uma RPC antiga apenas porque parece substituida.
 Antes, buscar no GitHub, ler arquivo ativo, verificar se existe arquivo legado ainda carregado, migrar dependencias, testar navegador e so entao aplicar REVOKE.
 ```
+
+## Teste aprovado apos bloqueio da `rpc_relatorio_gerencial_5v`
+
+Data: 2026-06-12.
+
+O usuario informou que os testes deram certo apos:
+
+```text
+1. Fechamento usando rpc_relatorio_gerencial_7a5.
+2. Relatorios/PDF legado migrado para rpc_relatorio_gerencial_7a5.
+3. Migration security_revoke_relatorio_gerencial_5v_20260612.
+```
+
+Fluxos testados e aprovados pelo usuario:
+
+```text
+Fechamento -> Gerar previa
+Fechamento -> Baixar PDF
+Relatorios -> Gerar relatorio
+Relatorios -> Baixar PDF gerencial
+```
+
+Conclusao:
+
+```text
+rpc_relatorio_gerencial_5v pode permanecer bloqueada.
+rpc_relatorio_gerencial_7a5 e a RPC oficial atual para relatorios/fechamento.
+```
