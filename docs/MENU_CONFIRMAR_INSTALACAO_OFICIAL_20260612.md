@@ -95,6 +95,21 @@ Após Ctrl+F5:
 6. Confirmar que usuários sem permissão operacional não visualizam a tela.
 ```
 
+## Teste aprovado
+
+Data: 2026-06-12.
+
+O usuário informou que a tela **Confirmar instalação** carrega normalmente e aprovou o teste.
+
+Resultado:
+
+```text
+Teste aprovado.
+Tela Confirmar instalação carregando normalmente.
+Menu oficial funcionando sem clean/menu_operacao_fix.js.
+Banco e RPCs preservados.
+```
+
 ## Risco
 
 ```text
