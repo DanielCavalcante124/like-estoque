@@ -108,6 +108,22 @@ Após Ctrl+F5, validar:
 8. Recarregar histórico.
 ```
 
+## Teste aprovado
+
+Data: 2026-06-12.
+
+O usuário informou que os testes da aba Fechamento deram certo após a alteração para modal interno.
+
+Resultado:
+
+```text
+Teste aprovado.
+Aba Fechamento funcionando.
+Modal interno validado.
+Cache-bust clean/fechamento.js?v=5 aplicado.
+Sem alteração de banco.
+```
+
 ## Observação importante
 
 O PDF foi mantido funcional, mas a melhoria principal desta etapa foi UX/segurança de interface, não alteração em regra de negócio nem no banco.
