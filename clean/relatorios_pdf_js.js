@@ -6,6 +6,7 @@ const qtd = v => Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits:
 const fmt = v => { try { return v ? new Date(v).toLocaleString('pt-BR') : '-'; } catch(e){ return String(v || '-'); } };
 const nome = o => [o?.tipo, o?.marca, o?.modelo].filter(Boolean).join(' ') || '-';
 const safe = v => String(v || 'relatorio_gerencial').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,90) || 'relatorio_gerencial';
+const REL_LIMITES = { p_mov_limit:100, p_mat_limit:200, p_alert_limit:100 };
 
 function msg(text, type='ok'){
   const el = $('relCleanMsg');
@@ -19,7 +20,8 @@ function getFiltros(){
     p_data_ini: $('relIni')?.value || null,
     p_data_fim: $('relFim')?.value || null,
     p_tecnico: $('relTecnico')?.value || null,
-    p_status: $('relStatus')?.value || null
+    p_status: $('relStatus')?.value || null,
+    ...REL_LIMITES
   };
 }
 function pdfLib(){
@@ -162,7 +164,7 @@ async function gerarPdfGerencial(){
   try{
     msg('Gerando PDF gerencial real...', 'warn');
     const JsPDF = pdfLib();
-    const rel = await call('rpc_relatorio_gerencial_5v', getFiltros());
+    const rel = await call('rpc_relatorio_gerencial_7a5', getFiltros());
     if(!rel?.ok && !rel?.kpis) throw new Error('RPC não retornou relatório válido.');
     const doc = new JsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
     const k = rel.kpis || {};
