@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.12",
-  "release_date": "2026-06-11",
+  "version": "1.1.13",
+  "release_date": "2026-06-12",
   "environment": "production",
-  "codename": "equipamentos-busca-paginada",
-  "summary": "Adicionada busca paginada de equipamentos no banco para suportar crescimento gradual para milhares de registros.",
+  "codename": "security-trigger-execute-lockdown",
+  "summary": "Bloqueada execucao direta via RPC de quatro funcoes de trigger SECURITY DEFINER que estavam acessiveis para public, anon e authenticated.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -21,6 +21,7 @@
     "main": "7",
     "entrada": "5",
     "entrada_lote": "5",
-    "tecnicos": "3"
+    "tecnicos": "3",
+    "database_migration": "security_revoke_execute_trigger_functions_20260612"
   }
 }
