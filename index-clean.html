@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>LIKE Estoque - Frontend Limpo</title>
+  <title>LIKE Estoque - Controle Operacional</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="clean/pdf_actions.js?v=1"></script>
@@ -13,14 +13,13 @@
 <body class="auth-locked">
   <div class="app-shell">
     <aside class="sidebar">
-      <div class="brand"><strong>LIKE Estoque</strong><span>Frontend limpo • Etapas 5C-6E</span></div>
+      <div class="brand"><strong>LIKE Estoque</strong><span>Controle operacional de estoque</span></div>
       <button class="nav active" data-page="dashboard">Dashboard</button>
       <button class="nav" data-page="cadastros">Cadastros</button>
-      <a class="legacy-link" href="index.html">Voltar para app atual</a>
       <div class="session-box offline"><b id="sessionStatus">Offline</b><small id="sessionUser">Faça login</small></div>
     </aside>
     <main class="main">
-      <header class="topbar"><div><h1 id="pageTitle">Dashboard</h1><p>Versão limpa sem patch27, patch28, patch29, patch30, final_stable ou guards antigos.</p></div><div class="top-actions"><button id="btnReload" class="secondary">Recarregar</button><button id="btnLogout" class="danger">Sair</button></div></header>
+      <header class="topbar"><div><h1 id="pageTitle">Dashboard</h1><p>Painel profissional para estoque, movimentações, auditoria, inventário e relatórios operacionais.</p></div><div class="top-actions"><button id="btnReload" class="secondary">Recarregar</button><button id="btnLogout" class="danger">Sair</button></div></header>
       <section id="loginPanel" class="card login-card">
         <div class="login-shell">
           <div class="login-hero">
@@ -37,7 +36,7 @@
           </div>
         </div>
       </section>
-      <section id="page-dashboard" class="page active"><div class="card"><h2>Dashboard carregando...</h2><p>Aguarde o módulo limpo consolidado carregar.</p></div></section>
+      <section id="page-dashboard" class="page active"><div class="card"><h2>Dashboard carregando...</h2><p>Carregando indicadores operacionais do estoque.</p></div></section>
       <section id="page-cadastros" class="page"><div class="grid three"><form id="formModelo" class="card form-card"><h2>Produto / Modelo</h2><input id="modeloId" type="hidden"><input id="modeloTipo" placeholder="Tipo. Ex: ONT, Conector, Cabo"><input id="modeloMarca" placeholder="Marca"><input id="modeloNome" placeholder="Modelo"><div class="form-grid three-mini"><input id="modeloCusto" type="number" min="0" step="0.01" placeholder="Custo"><input id="modeloMin" type="number" min="0" step="1" placeholder="Mínimo"><input id="modeloIdeal" type="number" min="0" step="1" placeholder="Ideal"></div><select id="modeloCategoria"><option value="Patrimônio">Patrimônio</option><option value="Consumo">Consumo</option><option value="Material fechado">Material fechado</option></select><div class="actions"><button class="primary" type="submit">Salvar modelo</button><button class="secondary" type="button" id="btnModeloClear">Limpar</button></div><div id="modeloMsg" class="msg"></div></form><form id="formTecnico" class="card form-card"><h2>Técnico</h2><input id="tecnicoId" type="hidden"><input id="tecnicoNome" placeholder="Nome do técnico"><div class="actions"><button class="primary" type="submit">Salvar técnico</button><button class="secondary" type="button" id="btnTecnicoClear">Limpar</button></div><div id="tecnicoMsg" class="msg"></div></form><form id="formLocal" class="card form-card"><h2>Local</h2><input id="localId" type="hidden"><input id="localNome" placeholder="Nome do local"><select id="localTipo"><option>Estoque</option><option>Técnico</option><option>Cliente</option><option>Rua</option><option>Manutenção</option><option>Inutilizado</option><option>Outro</option></select><div class="actions"><button class="primary" type="submit">Salvar local</button><button class="secondary" type="button" id="btnLocalClear">Limpar</button></div><div id="localMsg" class="msg"></div></form></div><div class="card"><div class="table-head"><h2>Modelos ativos</h2><input id="filtroModelos" placeholder="Filtrar modelos"></div><div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Marca</th><th>Modelo</th><th>Categoria</th><th>Custo</th><th>Mínimo</th><th>Ideal</th><th>Ações</th></tr></thead><tbody id="tbodyModelos"></tbody></table></div></div><div class="grid two"><div class="card"><div class="table-head"><h2>Técnicos ativos</h2><input id="filtroTecnicos" placeholder="Filtrar técnicos"></div><div id="listaTecnicos" class="list"></div></div><div class="card"><div class="table-head"><h2>Locais ativos</h2><input id="filtroLocais" placeholder="Filtrar locais"></div><div id="listaLocais" class="list"></div></div></div></section>
     </main>
   </div>
