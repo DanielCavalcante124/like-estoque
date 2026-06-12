@@ -80,6 +80,27 @@ Após Ctrl+F5:
 6. Confirmar que a linha do tempo carrega.
 ```
 
+## Teste aprovado
+
+Data: 2026-06-12
+
+O usuário informou que os testes foram aprovados após o hardening.
+
+Resultado validado em uso real:
+
+```text
+Dashboard funcionando.
+Histórico funcionando.
+Nenhum bloqueio indevido identificado no teste informado.
+```
+
+Conclusão:
+
+```text
+Hardening aprovado em produção.
+Versão 1.1.32 validada pelo usuário.
+```
+
 ## Acertos registrados
 
 ```text
@@ -88,6 +109,7 @@ Após Ctrl+F5:
 3. Não alterar retorno usado pela tela.
 4. Em função SQL, garantir que a checagem seja referenciada para não ser ignorada.
 5. Validar grants e presença do assert após migration.
+6. Registrar teste real aprovado antes da próxima etapa.
 ```
 
 ## Erros a evitar
@@ -97,6 +119,7 @@ Após Ctrl+F5:
 2. Trocar permissão para uma muito restritiva sem testar perfis reais.
 3. Converter função de leitura grande para plpgsql sem necessidade.
 4. Reescrever toda função manualmente quando é possível patch controlado.
+5. Bloquear RPC de tela ativa sem teste de navegador.
 ```
 
 ## Rollback
