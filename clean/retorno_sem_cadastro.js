@@ -114,7 +114,7 @@ function inject(){
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Código</th><th>Equipamento</th><th>MAC/SN</th><th>Técnico</th><th>Condição</th><th>Status</th><th>Local</th><th>Data</th></tr></thead>
+            <thead><tr><th>Código</th><th>Equipamento</th><th>MAC</th><th>SN</th><th>Técnico</th><th>Condição</th><th>Status</th><th>Local</th><th>Data</th></tr></thead>
             <tbody id="retornoTbody"></tbody>
           </table>
         </div>
@@ -275,7 +275,7 @@ function renderPreview(){
   }
   if($('retornoRegra')) $('retornoRegra').textContent = p.exige ? 'Regra: este patrimônio exige MAC ou Serial/SN. A duplicidade é validada no banco.' : 'Regra: este patrimônio não exige MAC/SN. Os campos foram ocultados.';
   $('retornoPreview').innerHTML = `
-    <div class="item"><div><b>${esc(p.tipo)} ${esc(p.marca)} ${esc(p.modelo)}</b><br><small>${esc(p.mac || p.serial || 'Sem MAC/SN')}</small></div><span class="badge">${br(p.custo)}</span></div>
+    <div class="item"><div><b>${esc(p.tipo)} ${esc(p.marca)} ${esc(p.modelo)}</b><br><small>MAC: ${esc(p.mac || '-')} • SN: ${esc(p.serial || '-')}</small></div><span class="badge">${br(p.custo)}</span></div>
     <div class="item"><div><b>Técnico</b><br><small>${esc(p.tecnico || 'Não informado')}</small></div><span class="badge">Retorno</span></div>
     <div class="item"><div><b>Condição</b><br><small>${esc(p.condicao)}</small></div><span class="badge">${esc(p.destino)}</span></div>
     <div class="item"><div><b>Responsável</b><br><small>${esc(p.responsavel || 'Não informado')}</small></div></div>
@@ -292,7 +292,8 @@ function textoComprovante(c){
     'Data/Hora: ' + (c.gerado_em || nowBR()),
     'Código gerado: ' + (c.codigo || '-'),
     'Equipamento: ' + [c.tipo,c.marca,c.modelo].filter(Boolean).join(' '),
-    'MAC/SN: ' + (c.mac || c.serial || '-'),
+    'MAC: ' + (c.mac || '-'),
+    'SN: ' + (c.serial || '-'),
     'Técnico que devolveu: ' + (c.tecnico || 'Não informado'),
     'Condição: ' + (c.condicao || '-'),
     'Destino: ' + (c.destino || '-'),
@@ -336,7 +337,7 @@ function gerarPdf(c){
   doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Equipamento recebido', 12, y); y += 7;
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   y = addPdfText(doc, `Modelo: ${[c.tipo,c.marca,c.modelo].filter(Boolean).join(' ')}`, 12, y, 186);
-  y = addPdfText(doc, `MAC/SN: ${c.mac || c.serial || '-'}`, 12, y, 186);
+  y = addPdfText(doc, `MAC: ${c.mac || '-'} | SN: ${c.serial || '-'}`, 12, y, 186);
   y += 20;
   if(y > 250){ doc.addPage(); y = 30; }
   doc.setDrawColor(120); doc.line(20, y, 90, y); doc.line(120, y, 190, y); y += 5;
@@ -381,13 +382,14 @@ function renderTabela(){
     <tr>
       <td><b>${esc(e.codigo || '-')}</b></td>
       <td>${esc(nomeModelo(e))}</td>
-      <td>${esc(e.mac || e.serial || '-')}</td>
+      <td>${esc(e.mac || '-')}</td>
+      <td>${esc(e.serial || '-')}</td>
       <td>${esc(e.tecnico_devolucao || '-')}</td>
       <td>${esc(e.condicao_retorno || '-')}</td>
       <td><span class="badge">${esc(e.status || '-')}</span></td>
       <td>${esc(e.local || '-')}</td>
       <td>${esc(e.retorno_data || (e.created_at ? new Date(e.created_at).toLocaleDateString('pt-BR') : '-'))}</td>
-    </tr>`).join('') || '<tr><td colspan="8">Nenhum retorno sem cadastro encontrado.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="9">Nenhum retorno sem cadastro encontrado.</td></tr>';
 }
 
 inject();
