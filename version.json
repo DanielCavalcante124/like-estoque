@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.37",
+  "version": "1.1.38",
   "release_date": "2026-06-13",
   "environment": "production",
-  "codename": "ui-equipamentos-mac-sn-separados",
-  "summary": "Separadas as colunas MAC e SN na tela principal de Equipamentos para melhorar a visualização do patrimônio.",
+  "codename": "ui-confirmar-instalacao-mac-sn-separados",
+  "summary": "Separadas as informações de MAC e SN também na tela de Confirmar instalação, incluindo tabela e resumo antes da confirmação.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -13,7 +13,7 @@
     "index_teste": "1",
     "index_local": "1",
     "pdf_actions": "1",
-    "confirmar_instalacao": "2",
+    "confirmar_instalacao": "3",
     "inventario_bip": "5",
     "inventario_materiais": "1",
     "equipamentos": "7",
@@ -27,11 +27,11 @@
     "auditoria": "3",
     "permissoes": "6",
     "relatorios_pdf_js": "7a5",
-    "frontend_change": "clean/equipamentos.js e index-clean.html",
+    "frontend_change": "clean/confirmar_instalacao.js e index-clean.html",
     "database_change": "none",
-    "validation": "codigo confirmou cabecalho MAC/SN separado em MAC e SN, renderizacao por e.mac e e.serial, colspan 10 e cache-bust equipamentos.js v7",
+    "validation": "codigo confirmou cabecalho MAC e SN separados, resumo com MAC e SN separados, renderizacao por e.mac e e.serial, colspan 8 e cache-bust confirmar_instalacao.js v3",
     "ui": [
-      "equipamentos_mac_sn_separados"
+      "confirmar_instalacao_mac_sn_separados"
     ]
   }
 }
