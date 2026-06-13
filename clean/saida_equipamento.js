@@ -122,7 +122,7 @@ function inject(){
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Código</th><th>Equipamento</th><th>MAC/SN</th><th>Status</th><th>Local</th><th>Ação</th></tr></thead>
+            <thead><tr><th>Código</th><th>Equipamento</th><th>MAC</th><th>SN</th><th>Status</th><th>Local</th><th>Ação</th></tr></thead>
             <tbody id="saidaTbody"></tbody>
           </table>
         </div>
@@ -217,7 +217,6 @@ function renderEquipSelect(){
   $('saidaEquipamento').innerHTML = '<option value="">Selecionar equipamento disponível</option>' + rows.map(e=>`<option value="${e.id}">${esc(identificacao(e))}</option>`).join('');
   if(S.selecionado && rows.some(e=>e.id===S.selecionado.id)) $('saidaEquipamento').value = S.selecionado.id;
 }
-
 function ajustarCamposPorTipo(){
   const tipo = $('saidaTipo').value;
   if(tipo === 'Enviar para manutenção'){
@@ -269,7 +268,7 @@ function payload(){
 
 function resumoHtml(p){
   return `
-    <div class="item"><div><b>${esc(p.eq.codigo || '-')} • ${esc(nomeEq(p.eq))}</b><br><small>${esc(p.eq.mac || p.eq.serial || 'Sem MAC/SN')}</small></div><span class="badge">${esc(p.eq.status || '-')}</span></div>
+    <div class="item"><div><b>${esc(p.eq.codigo || '-')} • ${esc(nomeEq(p.eq))}</b><br><small>MAC: ${esc(p.eq.mac || '-')} • SN: ${esc(p.eq.serial || '-')}</small></div><span class="badge">${esc(p.eq.status || '-')}</span></div>
     <div class="item"><div><b>Movimento</b><br><small>${esc(p.tipo)}</small></div><span class="badge">${esc(p.destino)}</span></div>
     <div class="item"><div><b>Técnico</b><br><small>${esc(p.tecnico || 'Não informado')}</small></div></div>
     <div class="item"><div><b>Cliente / OS</b><br><small>${esc([p.cliente,p.os].filter(Boolean).join(' • ') || 'Não informado')}</small></div></div>
@@ -326,7 +325,7 @@ function textoComprovante(s){
   if(s.obs) linhas.push('Obs: ' + s.obs);
   linhas.push('');
   linhas.push('EQUIPAMENTO:');
-  linhas.push(`${s.equipamento.codigo || '-'} | ${nomeEq(s.equipamento)} | MAC/SN: ${s.equipamento.mac || s.equipamento.serial || '-'} | Patrimônio: ${s.equipamento.patrimonio || '-'}`);
+  linhas.push(`${s.equipamento.codigo || '-'} | ${nomeEq(s.equipamento)} | MAC: ${s.equipamento.mac || '-'} | SN: ${s.equipamento.serial || '-'} | Patrimônio: ${s.equipamento.patrimonio || '-'}`);
   linhas.push('Status final: ' + (s.status_final || '-'));
   linhas.push('');
   linhas.push('Recebi/conferi o equipamento acima conforme movimentação registrada.');
@@ -362,7 +361,7 @@ function gerarPdf(s){
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   y = addPdfText(doc, `Código: ${s.equipamento.codigo || '-'} | Patrimônio: ${s.equipamento.patrimonio || '-'}`, 12, y, 186);
   y = addPdfText(doc, `Modelo: ${nomeEq(s.equipamento)}`, 12, y, 186);
-  y = addPdfText(doc, `MAC/SN: ${s.equipamento.mac || s.equipamento.serial || '-'}`, 12, y, 186);
+  y = addPdfText(doc, `MAC: ${s.equipamento.mac || '-'} | SN: ${s.equipamento.serial || '-'}`, 12, y, 186);
   y += 20;
   if(y > 250){ doc.addPage(); y = 30; }
   doc.setDrawColor(120); doc.line(20, y, 90, y); doc.line(120, y, 190, y); y += 5;
@@ -406,11 +405,12 @@ function renderTabela(){
     <tr>
       <td><b>${esc(e.codigo || '-')}</b></td>
       <td>${esc(nomeEq(e))}</td>
-      <td>${esc(e.mac || e.serial || '-')}</td>
+      <td>${esc(e.mac || '-')}</td>
+      <td>${esc(e.serial || '-')}</td>
       <td><span class="badge">${esc(e.status || '-')}</span></td>
       <td>${esc(e.local || '-')}</td>
       <td><button class="secondary" data-saida-eq="${e.id}">Selecionar</button></td>
-    </tr>`).join('') || '<tr><td colspan="6">Nenhum equipamento disponível para saída.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="7">Nenhum equipamento disponível para saída.</td></tr>';
 }
 
 inject();
