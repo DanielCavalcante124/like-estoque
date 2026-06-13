@@ -98,7 +98,7 @@ function inject(){
       <div class="card">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Código</th><th>Equipamento</th><th>MAC/SN</th><th>Status</th><th>Local</th><th>Técnico</th><th>Cliente/OS</th><th>Custo</th><th>Ações</th></tr></thead>
+            <thead><tr><th>Código</th><th>Equipamento</th><th>MAC</th><th>SN</th><th>Status</th><th>Local</th><th>Técnico</th><th>Cliente/OS</th><th>Custo</th><th>Ações</th></tr></thead>
             <tbody id="eqCleanTbody"></tbody>
           </table>
         </div>
@@ -189,14 +189,15 @@ function renderEquipamentos(){
     <tr>
       <td><b>${esc(e.codigo)}</b><br><small>${esc(e.patrimonio || '')}</small></td>
       <td>${esc(nomeEq(e))}</td>
-      <td>${esc(e.mac || e.serial || '-')}</td>
+      <td>${esc(e.mac || '-')}</td>
+      <td>${esc(e.serial || '-')}</td>
       <td><span class="badge">${esc(e.status)}</span></td>
       <td>${esc(e.local || '-')}</td>
       <td>${esc(e.tecnico_atual || '-')}</td>
       <td>${esc(e.cliente_atual || '-')}<br><small>${esc(e.os_atual || '')}</small></td>
       <td>${br(e.custo)}</td>
       <td><div class="actions">${renderAcoes(e)}</div></td>
-    </tr>`).join('') || '<tr><td colspan="9">Nenhum equipamento encontrado.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="10">Nenhum equipamento encontrado.</td></tr>';
 }
 
 async function abrirFluxo(tipo, id){
