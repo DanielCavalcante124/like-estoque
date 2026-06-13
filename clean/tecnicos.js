@@ -89,7 +89,7 @@ function inject(){
         </div>
       </div>
 
-      <div class="card"><h2>Equipamentos</h2><div class="table-wrap"><table><thead><tr><th>Código</th><th>Equipamento</th><th>MAC/SN</th><th>Status</th><th>Local</th><th>Cliente/OS</th><th>Custo</th></tr></thead><tbody id="tecEqT"></tbody></table></div></div>
+      <div class="card"><h2>Equipamentos</h2><div class="table-wrap"><table><thead><tr><th>Código</th><th>Equipamento</th><th>MAC</th><th>SN</th><th>Status</th><th>Local</th><th>Cliente/OS</th><th>Custo</th></tr></thead><tbody id="tecEqT"></tbody></table></div></div>
       <div class="card"><h2>Materiais</h2><div class="table-wrap"><table><thead><tr><th>Categoria</th><th>Material</th><th>Unidade</th><th>Quantidade</th><th>Local</th></tr></thead><tbody id="tecMatT"></tbody></table></div></div>
       <div class="card"><h2>Histórico recente</h2><div class="table-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Ação</th><th>Item</th><th>Qtd</th><th>Obs</th></tr></thead><tbody id="tecHistT"></tbody></table></div></div>`;
     document.querySelector('.main').appendChild(s);
@@ -168,7 +168,7 @@ async function renderDetalhe(){
   if(!n){
     $('tecTitulo').textContent = 'Selecione um técnico';
     $('tecResumo').innerHTML = '<div class="msg show">Clique em um técnico.</div>';
-    $('tecEqT').innerHTML = '<tr><td colspan="7">Selecione um técnico.</td></tr>';
+    $('tecEqT').innerHTML = '<tr><td colspan="8">Selecione um técnico.</td></tr>';
     $('tecMatT').innerHTML = '<tr><td colspan="5">Selecione um técnico.</td></tr>';
     $('tecHistT').innerHTML = '<tr><td colspan="6">Selecione um técnico.</td></tr>';
     esconderMensagemManual();
@@ -178,7 +178,7 @@ async function renderDetalhe(){
   const e = eqs(), m = mats(), p = pend(n);
   $('tecTitulo').textContent = 'Técnico: ' + n;
   $('tecResumo').innerHTML = `<div class="kpis"><div class="kpi"><small>Equip.</small><b>${e.length}</b></div><div class="kpi"><small>Mat.</small><b>${m.length}</b></div><div class="kpi"><small>Valor</small><b>${br(valor(n))}</b></div><div class="kpi"><small>Pend.</small><b>${p.length}</b></div></div>${p.length ? `<div class="msg show bad">${p.map(esc).join('<br>')}</div>` : '<div class="msg show ok">Sem pendência crítica aparente.</div>'}`;
-  $('tecEqT').innerHTML = e.map(x => `<tr><td>${esc(x.codigo)}</td><td>${esc(nomeEq(x))}</td><td>${esc(x.mac || x.serial || '-')}</td><td>${esc(x.status || '-')}</td><td>${esc(x.local || '-')}</td><td>${esc(x.cliente_atual || '-')}<br><small>${esc(x.os_atual || '')}</small></td><td>${br(x.custo)}</td></tr>`).join('') || '<tr><td colspan="7">Sem equipamento em posse.</td></tr>';
+  $('tecEqT').innerHTML = e.map(x => `<tr><td>${esc(x.codigo)}</td><td>${esc(nomeEq(x))}</td><td>${esc(x.mac || '-')}</td><td>${esc(x.serial || '-')}</td><td>${esc(x.status || '-')}</td><td>${esc(x.local || '-')}</td><td>${esc(x.cliente_atual || '-')}<br><small>${esc(x.os_atual || '')}</small></td><td>${br(x.custo)}</td></tr>`).join('') || '<tr><td colspan="8">Sem equipamento em posse.</td></tr>';
   $('tecMatT').innerHTML = m.map(x => `<tr><td>${esc(x.categoria || '')}</td><td>${esc(nomeMat(x))}</td><td>${esc(x.unidade_saida || '')}</td><td><b>${qtd(x.quantidade)}</b></td><td>${esc(x.local || '-')}</td></tr>`).join('') || '<tr><td colspan="5">Sem material em posse.</td></tr>';
   renderHist();
   esconderMensagemManual();
@@ -195,7 +195,7 @@ function textoResumo(){
   const n = S.sel;
   if(!n) return '';
   const linhas = [`Resumo de estoque - ${n}`, `Equipamentos: ${eqs().length}`];
-  eqs().forEach(e => linhas.push(`- ${e.codigo || '-'} | ${nomeEq(e)} | ${e.mac || e.serial || '-'} | ${e.status || '-'}`));
+  eqs().forEach(e => linhas.push(`- ${e.codigo || '-'} | ${nomeEq(e)} | MAC: ${e.mac || '-'} | SN: ${e.serial || '-'} | ${e.status || '-'}`));
   linhas.push(`Materiais: ${mats().length}`);
   mats().forEach(m => linhas.push(`- ${nomeMat(m)} | ${qtd(m.quantidade)} ${m.unidade_saida || ''}`));
   linhas.push(`Valor patrimônio: ${br(valor(n))}`);
@@ -216,7 +216,7 @@ function textoCobranca(){
   const linhas = [`Bom dia, ${n}.`, '', 'Estou conferindo o estoque no LIKE Estoque e consta em sua posse os itens abaixo:', ''];
   if(equipamentos.length){
     linhas.push('*Equipamentos:*');
-    equipamentos.forEach((e, i) => linhas.push(`${i + 1}. ${e.codigo || '-'} | ${nomeEq(e)} | MAC/SN: ${e.mac || e.serial || '-'} | Status: ${e.status || '-'}${e.os_atual ? ' | OS: ' + e.os_atual : ''}`));
+    equipamentos.forEach((e, i) => linhas.push(`${i + 1}. ${e.codigo || '-'} | ${nomeEq(e)} | MAC: ${e.mac || '-'} | SN: ${e.serial || '-'} | Status: ${e.status || '-'}${e.os_atual ? ' | OS: ' + e.os_atual : ''}`));
     linhas.push('');
   }
   if(materiais.length){
