@@ -166,7 +166,7 @@ function renderResumo(){
   }
   const ativo = e.ativo === false ? 'Inativo/Baixado' : 'Ativo';
   $('historicoResumo').innerHTML = `
-    <div class="item"><div><b>${esc(e.codigo || '-')} • ${esc(nomeEq(e))}</b><br><small>${esc(e.mac || e.serial || e.patrimonio || 'Sem identificação')}</small></div><span class="badge">${esc(ativo)}</span></div>
+    <div class="item"><div><b>${esc(e.codigo || '-')} • ${esc(nomeEq(e))}</b><br><small>MAC: ${esc(e.mac || '-')} • SN: ${esc(e.serial || '-')} • Patrimônio: ${esc(e.patrimonio || '-')}</small></div><span class="badge">${esc(ativo)}</span></div>
     <div class="item"><div><b>Status atual</b><br><small>${esc(e.status || '-')}</small></div><span class="badge">${esc(e.local || '-')}</span></div>
     <div class="item"><div><b>Atual vinculado</b><br><small>${esc([e.tecnico_atual,e.cliente_atual,e.os_atual].filter(Boolean).join(' • ') || 'Sem vínculo atual')}</small></div></div>
     <div class="item"><div><b>Motivo atual</b><br><small>${esc(e.motivo_atual || e.motivo_baixa || '-')}</small></div></div>`;
@@ -287,7 +287,8 @@ async function gerarPdf(){
 
     y = addPdfSectionTitle(doc, 'Resumo do equipamento', y);
     doc.setFontSize(10);
-    y = addPdfText(doc, `Código: ${eq.codigo || '-'} | Produto: ${nomeEq(eq) || '-'} | Identificação: ${eq.mac || eq.serial || eq.patrimonio || '-'}`, 12, y, 186);
+    y = addPdfText(doc, `Código: ${eq.codigo || '-'} | Produto: ${nomeEq(eq) || '-'} | Patrimônio: ${eq.patrimonio || '-'}`, 12, y, 186);
+    y = addPdfText(doc, `MAC: ${eq.mac || '-'} | SN: ${eq.serial || '-'}`, 12, y, 186);
     y = addPdfText(doc, `Status atual: ${eq.status || '-'} | Local atual: ${eq.local || '-'} | Ativo: ${eq.ativo === false ? 'Não' : 'Sim'}`, 12, y, 186);
     y = addPdfText(doc, `Vínculo atual: ${[eq.tecnico_atual, eq.cliente_atual, eq.os_atual].filter(Boolean).join(' | ') || '-'}`, 12, y, 186);
     y = addPdfText(doc, `Motivo atual: ${eq.motivo_atual || eq.motivo_baixa || '-'}`, 12, y, 186);
