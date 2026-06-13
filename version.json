@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.39",
+  "version": "1.1.40",
   "release_date": "2026-06-13",
   "environment": "production",
-  "codename": "ui-saida-devolucao-mac-sn-separados",
-  "summary": "Separadas as informações de MAC e SN nas telas de Saída e Devolução, incluindo tabela, resumo, WhatsApp e PDF.",
+  "codename": "ui-baixa-mac-sn-separados",
+  "summary": "Separadas as informações de MAC e SN na tela de Baixa, incluindo tabela, resumo, WhatsApp e PDF.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -16,6 +16,7 @@
     "confirmar_instalacao": "3",
     "saida_equipamento": "6",
     "devolucao_equipamento": "5",
+    "baixa_equipamento": "4",
     "inventario_bip": "5",
     "inventario_materiais": "1",
     "equipamentos": "7",
@@ -29,12 +30,11 @@
     "auditoria": "3",
     "permissoes": "6",
     "relatorios_pdf_js": "7a5",
-    "frontend_change": "clean/saida_equipamento.js, clean/devolucao_equipamento.js e index-clean.html",
+    "frontend_change": "clean/baixa_equipamento.js e index-clean.html",
     "database_change": "none",
-    "validation": "busca confirmou ausência de MAC/SN em saida_equipamento.js e devolucao_equipamento.js; index-clean carrega saida v6 e devolucao v5",
+    "validation": "busca confirmou ausência de MAC/SN em saida_equipamento.js, devolucao_equipamento.js e baixa_equipamento.js; index-clean carrega baixa v4",
     "ui": [
-      "saida_mac_sn_separados",
-      "devolucao_mac_sn_separados"
+      "baixa_mac_sn_separados"
     ]
   }
 }
