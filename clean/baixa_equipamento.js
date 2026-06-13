@@ -91,7 +91,7 @@ function inject(){
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Código</th><th>Equipamento</th><th>MAC/SN</th><th>Status</th><th>Local</th><th>Motivo atual</th><th>Ação</th></tr></thead>
+            <thead><tr><th>Código</th><th>Equipamento</th><th>MAC</th><th>SN</th><th>Status</th><th>Local</th><th>Motivo atual</th><th>Ação</th></tr></thead>
             <tbody id="baixaTbody"></tbody>
           </table>
         </div>
@@ -200,7 +200,7 @@ function payload(){
 
 function resumoHtml(p){
   return `
-    <div class="item"><div><b>${esc(p.eq.codigo || '-')} • ${esc(nomeEq(p.eq))}</b><br><small>${esc(p.eq.mac || p.eq.serial || 'Sem MAC/SN')}</small></div><span class="badge">${esc(p.eq.status || '-')}</span></div>
+    <div class="item"><div><b>${esc(p.eq.codigo || '-')} • ${esc(nomeEq(p.eq))}</b><br><small>MAC: ${esc(p.eq.mac || '-')} • SN: ${esc(p.eq.serial || '-')}</small></div><span class="badge">${esc(p.eq.status || '-')}</span></div>
     <div class="item"><div><b>Local atual</b><br><small>${esc(p.eq.local || '-')}</small></div><span class="badge">Baixado</span></div>
     <div class="item"><div><b>Responsável</b><br><small>${esc(p.responsavel)}</small></div></div>
     <div class="item"><div><b>Motivo</b><br><small>${esc(p.motivo)}</small></div></div>
@@ -269,7 +269,7 @@ function textoComprovante(s){
   if(s.obs) linhas.push('Obs: ' + s.obs);
   linhas.push('');
   linhas.push('EQUIPAMENTO:');
-  linhas.push(`${s.equipamento.codigo || '-'} | ${nomeEq(s.equipamento)} | MAC/SN: ${s.equipamento.mac || s.equipamento.serial || '-'} | Patrimônio: ${s.equipamento.patrimonio || '-'}`);
+  linhas.push(`${s.equipamento.codigo || '-'} | ${nomeEq(s.equipamento)} | MAC: ${s.equipamento.mac || '-'} | SN: ${s.equipamento.serial || '-'} | Patrimônio: ${s.equipamento.patrimonio || '-'}`);
   linhas.push('Status anterior: ' + (s.equipamento.status_anterior || '-'));
   linhas.push('Local anterior: ' + (s.equipamento.local_anterior || '-'));
   linhas.push('Status final: ' + (s.status_final || 'Baixado'));
@@ -314,7 +314,7 @@ function gerarPdf(s){
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   y = addPdfText(doc, `Código: ${s.equipamento.codigo || '-'} | Patrimônio: ${s.equipamento.patrimonio || '-'}`, 12, y, 186);
   y = addPdfText(doc, `Modelo: ${nomeEq(s.equipamento)}`, 12, y, 186);
-  y = addPdfText(doc, `MAC/SN: ${s.equipamento.mac || s.equipamento.serial || '-'}`, 12, y, 186);
+  y = addPdfText(doc, `MAC: ${s.equipamento.mac || '-'} | SN: ${s.equipamento.serial || '-'}`, 12, y, 186);
   y = addPdfText(doc, `Status anterior: ${s.equipamento.status_anterior || '-'} | Local anterior: ${s.equipamento.local_anterior || '-'}`, 12, y, 186);
   y = addPdfText(doc, `Origem anterior: ${[s.equipamento.tecnico_anterior,s.equipamento.cliente_anterior].filter(Boolean).join(' • ') || '-'}`, 12, y, 186);
   y = addPdfText(doc, `Motivo anterior: ${s.equipamento.motivo_anterior || '-'}`, 12, y, 186);
@@ -372,12 +372,13 @@ function renderTabela(){
     <tr>
       <td><b>${esc(e.codigo || '-')}</b></td>
       <td>${esc(nomeEq(e))}</td>
-      <td>${esc(e.mac || e.serial || '-')}</td>
+      <td>${esc(e.mac || '-')}</td>
+      <td>${esc(e.serial || '-')}</td>
       <td><span class="badge">${esc(e.status || '-')}</span></td>
       <td>${esc(e.local || '-')}</td>
       <td>${esc(e.motivo_atual || e.motivo_baixa || '-')}</td>
       <td><button class="danger" data-baixa-eq="${e.id}">Selecionar</button></td>
-    </tr>`).join('') || '<tr><td colspan="7">Nenhum equipamento elegível para baixa.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="8">Nenhum equipamento elegível para baixa.</td></tr>';
 }
 
 inject();
