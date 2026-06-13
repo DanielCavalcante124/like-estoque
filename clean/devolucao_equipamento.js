@@ -99,7 +99,7 @@ function inject(){
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Código</th><th>Equipamento</th><th>MAC/SN</th><th>Status</th><th>Atual</th><th>OS</th><th>Ação</th></tr></thead>
+            <thead><tr><th>Código</th><th>Equipamento</th><th>MAC</th><th>SN</th><th>Status</th><th>Atual</th><th>OS</th><th>Ação</th></tr></thead>
             <tbody id="devolucaoTbody"></tbody>
           </table>
         </div>
@@ -229,7 +229,7 @@ function payload(){
 
 function resumoHtml(p){
   return `
-    <div class="item"><div><b>${esc(p.eq.codigo || '-')} • ${esc(nomeEq(p.eq))}</b><br><small>${esc(p.eq.mac || p.eq.serial || 'Sem MAC/SN')}</small></div><span class="badge">${esc(p.eq.status || '-')}</span></div>
+    <div class="item"><div><b>${esc(p.eq.codigo || '-')} • ${esc(nomeEq(p.eq))}</b><br><small>MAC: ${esc(p.eq.mac || '-')} • SN: ${esc(p.eq.serial || '-')}</small></div><span class="badge">${esc(p.eq.status || '-')}</span></div>
     <div class="item"><div><b>Atual</b><br><small>${esc([p.eq.tecnico_atual,p.eq.cliente_atual,p.eq.local].filter(Boolean).join(' • ') || 'Não informado')}</small></div></div>
     <div class="item"><div><b>Condição</b><br><small>${esc(p.condicao)}</small></div><span class="badge">${esc(p.destino)}</span></div>
     <div class="item"><div><b>Técnico / OS</b><br><small>${esc([p.tecnico,p.os].filter(Boolean).join(' • ') || 'Não informado')}</small></div></div>
@@ -283,7 +283,7 @@ function textoComprovante(s){
   if(s.obs) linhas.push('Obs: ' + s.obs);
   linhas.push('');
   linhas.push('EQUIPAMENTO DEVOLVIDO:');
-  linhas.push(`${s.equipamento.codigo || '-'} | ${nomeEq(s.equipamento)} | MAC/SN: ${s.equipamento.mac || s.equipamento.serial || '-'} | Patrimônio: ${s.equipamento.patrimonio || '-'}`);
+  linhas.push(`${s.equipamento.codigo || '-'} | ${nomeEq(s.equipamento)} | MAC: ${s.equipamento.mac || '-'} | SN: ${s.equipamento.serial || '-'} | Patrimônio: ${s.equipamento.patrimonio || '-'}`);
   linhas.push('Status anterior: ' + (s.equipamento.status_anterior || '-'));
   linhas.push('Status final: ' + (s.status_final || '-'));
   linhas.push('');
@@ -320,7 +320,7 @@ function gerarPdf(s){
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   y = addPdfText(doc, `Código: ${s.equipamento.codigo || '-'} | Patrimônio: ${s.equipamento.patrimonio || '-'}`, 12, y, 186);
   y = addPdfText(doc, `Modelo: ${nomeEq(s.equipamento)}`, 12, y, 186);
-  y = addPdfText(doc, `MAC/SN: ${s.equipamento.mac || s.equipamento.serial || '-'}`, 12, y, 186);
+  y = addPdfText(doc, `MAC: ${s.equipamento.mac || '-'} | SN: ${s.equipamento.serial || '-'}`, 12, y, 186);
   y = addPdfText(doc, `Origem anterior: ${[s.equipamento.tecnico_anterior,s.equipamento.cliente_anterior,s.equipamento.local_anterior].filter(Boolean).join(' • ') || '-'}`, 12, y, 186);
   y += 20;
   if(y > 250){ doc.addPage(); y = 30; }
@@ -364,12 +364,13 @@ function renderTabela(){
     <tr>
       <td><b>${esc(e.codigo || '-')}</b></td>
       <td>${esc(nomeEq(e))}</td>
-      <td>${esc(e.mac || e.serial || '-')}</td>
+      <td>${esc(e.mac || '-')}</td>
+      <td>${esc(e.serial || '-')}</td>
       <td><span class="badge">${esc(e.status || '-')}</span></td>
       <td>${esc([e.tecnico_atual,e.cliente_atual,e.local].filter(Boolean).join(' • ') || '-')}</td>
       <td>${esc(e.os_atual || '-')}</td>
       <td><button class="secondary" data-devolucao-eq="${e.id}">Selecionar</button></td>
-    </tr>`).join('') || '<tr><td colspan="7">Nenhum equipamento elegível para devolução.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="8">Nenhum equipamento elegível para devolução.</td></tr>';
 }
 
 inject();
