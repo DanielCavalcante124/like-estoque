@@ -88,7 +88,7 @@ function inject(){
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Código</th><th>Equipamento</th><th>MAC/SN</th><th>Status</th><th>Técnico</th><th>Local</th><th>Ação</th></tr></thead>
+            <thead><tr><th>Código</th><th>Equipamento</th><th>MAC</th><th>SN</th><th>Status</th><th>Técnico</th><th>Local</th><th>Ação</th></tr></thead>
             <tbody id="instalacaoTbody"></tbody>
           </table>
         </div>
@@ -157,7 +157,7 @@ function payload(){
 
 function resumoHtml(p){
   return `
-    <div class="item"><div><b>${esc(p.eq.codigo || '-')} • ${esc(nomeEq(p.eq))}</b><br><small>MAC/SN: ${esc(p.eq.mac || p.eq.serial || '-')}</small></div><span class="badge">${esc(p.eq.status || '-')}</span></div>
+    <div class="item"><div><b>${esc(p.eq.codigo || '-')} • ${esc(nomeEq(p.eq))}</b><br><small>MAC: ${esc(p.eq.mac || '-')} • SN: ${esc(p.eq.serial || '-')}</small></div><span class="badge">${esc(p.eq.status || '-')}</span></div>
     <div class="item"><div><b>Técnico atual</b><br><small>${esc(p.eq.tecnico_atual || 'Não informado')}</small></div><span class="badge">Será encerrado</span></div>
     <div class="item"><div><b>Cliente / endereço</b><br><small>${esc(p.cliente)}</small></div><span class="badge">Instalado cliente</span></div>
     <div class="item"><div><b>OS / Atendimento</b><br><small>${esc(p.os)}</small></div></div>
@@ -219,12 +219,13 @@ function renderTabela(){
     <tr>
       <td><b>${esc(e.codigo || '-')}</b></td>
       <td>${esc(nomeEq(e))}</td>
-      <td>${esc(e.mac || e.serial || '-')}</td>
+      <td>${esc(e.mac || '-')}</td>
+      <td>${esc(e.serial || '-')}</td>
       <td><span class="badge">${esc(e.status || '-')}</span></td>
       <td>${esc(e.tecnico_atual || '-')}</td>
       <td>${esc(e.local || '-')}</td>
       <td><button class="primary" type="button" data-instalar-eq="${e.id}">Confirmar</button></td>
-    </tr>`).join('') || '<tr><td colspan="7">Nenhum equipamento em aberto com técnico.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="8">Nenhum equipamento em aberto com técnico.</td></tr>';
 }
 
 function limparForm(showMsg=true){
