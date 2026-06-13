@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.36",
-  "release_date": "2026-06-12",
+  "version": "1.1.37",
+  "release_date": "2026-06-13",
   "environment": "production",
-  "codename": "modelagem-confirmar-instalacao-cliente-final",
-  "summary": "Consolidada regra oficial da confirmação de instalação: local operacional Cliente final, cliente informado em cliente_atual e OS em os_atual.",
+  "codename": "ui-equipamentos-mac-sn-separados",
+  "summary": "Separadas as colunas MAC e SN na tela principal de Equipamentos para melhorar a visualização do patrimônio.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -16,7 +16,7 @@
     "confirmar_instalacao": "2",
     "inventario_bip": "5",
     "inventario_materiais": "1",
-    "equipamentos": "5",
+    "equipamentos": "7",
     "version": "8",
     "main": "7",
     "entrada": "5",
@@ -27,11 +27,11 @@
     "auditoria": "3",
     "permissoes": "6",
     "relatorios_pdf_js": "7a5",
-    "frontend_change": "none",
-    "database_change": "migration modelagem_confirmar_instalacao_cliente_final_20260612_v3",
-    "validation": "catalogo confirmou local Cliente final, cliente_atual preservado, os_atual preservado, segurança e idempotência preservadas",
-    "modeling": [
-      "confirmar_instalacao_cliente_final"
+    "frontend_change": "clean/equipamentos.js e index-clean.html",
+    "database_change": "none",
+    "validation": "codigo confirmou cabecalho MAC/SN separado em MAC e SN, renderizacao por e.mac e e.serial, colspan 10 e cache-bust equipamentos.js v7",
+    "ui": [
+      "equipamentos_mac_sn_separados"
     ]
   }
 }
