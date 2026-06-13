@@ -170,7 +170,7 @@ function renderDetalhe(){
     </div>
     <h3>Equipamentos</h3>
     <div class="lote-list">
-      ${(l.equipamentos || []).map((e,i)=>`<div class="lote-row"><div><b>${i+1}. ${esc(e.codigo || '-')} • ${esc(nomeEq(e))}</b><br><small>MAC/SN: ${esc(e.mac || e.serial || '-')} • Patrimônio: ${esc(e.patrimonio || '-')} • Status: ${esc(e.status_final || '-')}</small></div><span class="badge">${esc(e.os || l.os || '-')}</span></div>`).join('') || '<div class="msg show">Sem equipamentos neste lote.</div>'}
+      ${(l.equipamentos || []).map((e,i)=>`<div class="lote-row"><div><b>${i+1}. ${esc(e.codigo || '-')} • ${esc(nomeEq(e))}</b><br><small>MAC: ${esc(e.mac || '-')} • SN: ${esc(e.serial || '-')} • Patrimônio: ${esc(e.patrimonio || '-')} • Status: ${esc(e.status_final || '-')}</small></div><span class="badge">${esc(e.os || l.os || '-')}</span></div>`).join('') || '<div class="msg show">Sem equipamentos neste lote.</div>'}
     </div>
     <h3>Materiais</h3>
     <div class="lote-list">
@@ -190,7 +190,7 @@ function textoWhats(l){
   if(l.observacao) linhas.push('Obs: ' + l.observacao);
   linhas.push('');
   linhas.push('EQUIPAMENTOS (' + (l.equipamentos || []).length + '):');
-  linhas.push((l.equipamentos || []).map((e,i)=>`${i+1}. ${e.codigo || '-'} | ${nomeEq(e)} | MAC/SN: ${e.mac || e.serial || '-'}`).join('\n') || 'Sem equipamentos.');
+  linhas.push((l.equipamentos || []).map((e,i)=>`${i+1}. ${e.codigo || '-'} | ${nomeEq(e)} | MAC: ${e.mac || '-'} | SN: ${e.serial || '-'}`).join('\n') || 'Sem equipamentos.');
   linhas.push('');
   linhas.push('MATERIAIS (' + (l.materiais || []).length + '):');
   linhas.push((l.materiais || []).map(m=>`- ${nomeMat(m)}: ${qtd(m.quantidade)} ${m.unidade_saida || ''}`).join('\n') || 'Sem materiais.');
@@ -231,7 +231,7 @@ function gerarPdf(l){
     doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text(`Equipamentos (${(l.equipamentos || []).length})`, 12, y); y += 7;
     doc.setFont('helvetica','normal'); doc.setFontSize(9);
     if(!(l.equipamentos || []).length) y = addPdfText(doc, 'Sem equipamentos.', 12, y, 186);
-    (l.equipamentos || []).forEach((e,i)=>{ y = addPdfText(doc, `${i+1}. ${e.codigo || '-'} | ${nomeEq(e)} | MAC/SN: ${e.mac || e.serial || '-'} | Patrimônio: ${e.patrimonio || '-'}`, 12, y, 186); });
+    (l.equipamentos || []).forEach((e,i)=>{ y = addPdfText(doc, `${i+1}. ${e.codigo || '-'} | ${nomeEq(e)} | MAC: ${e.mac || '-'} | SN: ${e.serial || '-'} | Patrimônio: ${e.patrimonio || '-'}`, 12, y, 186); });
     y += 4; if(y > 272){ doc.addPage(); y = 16; }
     doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text(`Materiais (${(l.materiais || []).length})`, 12, y); y += 7;
     doc.setFont('helvetica','normal'); doc.setFontSize(9);
