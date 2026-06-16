@@ -97,11 +97,22 @@ function ensureSidebarGroups(){
   });
   return root;
 }
+function ordenarGrupo(cat){
+  const items = $(`sideGroupItems-${cat.key}`); if(!items || !cat.ids?.length) return;
+  Array.from(items.querySelectorAll('.nav'))
+    .sort((a,b) => {
+      const ia = cat.ids.indexOf(a.id), ib = cat.ids.indexOf(b.id);
+      const pa = ia === -1 ? 999 : ia, pb = ib === -1 ? 999 : ib;
+      return pa - pb;
+    })
+    .forEach(nav => items.appendChild(nav));
+}
 function organizeSidebar(){
   const side = document.querySelector('.sidebar'); if(!side || S.busy) return;
   const root = ensureSidebarGroups(); if(!root) return;
   const navs = Array.from(side.querySelectorAll('.nav')).filter(el => !el.closest('.side-group-items'));
   navs.forEach(nav => { const key = categoryForNav(nav); const target = $(`sideGroupItems-${key}`) || $('sideGroupItems-outros'); target?.appendChild(nav); });
+  CATEGORIES.forEach(ordenarGrupo);
   const legacy = side.querySelector('.legacy-link'), session = side.querySelector('.session-box'), profile = $('permProfileCard');
   if(legacy) side.appendChild(legacy); if(session) side.appendChild(session); if(profile) side.appendChild(profile);
 }
