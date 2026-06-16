@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.41",
-  "release_date": "2026-06-13",
+  "version": "1.1.42",
+  "release_date": "2026-06-16",
   "environment": "production",
-  "codename": "ui-lote2-mac-sn-parcial",
-  "summary": "Separadas as informações de MAC e SN em Lotes de saída, Técnicos, Histórico e Retorno sem cadastro. Operação rápida ficará em etapa isolada por ser tela central de saída em lote.",
+  "codename": "transferencia-filial-posse-go",
+  "summary": "Criada a modelagem e tela inicial de Transferência para filial, com filial Filial - Posse GO, status Em filial e movimento Transferência para filial.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -18,6 +18,7 @@
     "devolucao_equipamento": "5",
     "baixa_equipamento": "4",
     "lotes_saida": "2",
+    "transferencia_filial": "1",
     "tecnicos": "5",
     "historico_equipamento": "4",
     "retorno_sem_cadastro": "4",
@@ -33,18 +34,21 @@
     "auditoria": "3",
     "permissoes": "6",
     "relatorios_pdf_js": "7a5",
-    "frontend_change": "clean/lotes_saida.js, clean/tecnicos.js, clean/historico_equipamento.js, clean/retorno_sem_cadastro.js e index-clean.html",
-    "database_change": "none",
-    "validation": "busca confirmou ausência de MAC/SN nos arquivos alterados do lote 2 parcial",
+    "frontend_change": "clean/transferencia_filial.js e index-clean.html",
+    "database_change": "migration transferencia_filial_posse_go_20260616_v2",
+    "validation": "local Filial - Posse GO criado; tabelas transferencias_filiais e transferencias_filiais_itens criadas com RLS; RPC rpc_transferir_equipamentos_filial validada com SECURITY DEFINER, app_assert_can_operate_stock, FOR UPDATE, audit_log, idempotencia e anon/public bloqueados",
+    "modeling": [
+      "transferencia_filial_nao_e_baixa",
+      "status_em_filial",
+      "local_filial_posse_go"
+    ],
     "ui": [
-      "lotes_saida_mac_sn_separados",
-      "tecnicos_mac_sn_separados",
-      "historico_mac_sn_separados",
-      "retorno_sem_cadastro_mac_sn_separados"
+      "transferencia_filial_posse_go"
     ],
     "pending": [
-      "operacao_rapida_mac_sn_separados",
-      "manutencao_mac_sn_separados"
+      "teste_navegador_transferencia_filial",
+      "ajuste_categoria_menu_permissoes_se_necessario",
+      "relatorio_patrimonio_por_filial"
     ]
   }
 }
