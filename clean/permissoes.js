@@ -29,6 +29,8 @@ const NAV_RULES = [
   { selector:'#navRetornoSemCadastroClean', perm:'operacao_estoque' },
   { selector:'#navSaidaClean', perm:'operacao_estoque' },
   { selector:'#navDevolucaoClean', perm:'operacao_estoque' },
+  { selector:'#navTransferenciaFilialClean', perm:'operacao_estoque' },
+  { selector:'#navRetornoFilialClean', perm:'operacao_estoque' },
   { selector:'#navConfirmarInstalacao', perm:'operacao_estoque' }
 ];
 
@@ -40,13 +42,15 @@ const TEXT_RULES = [
   { text:'auditoria', perm:'auditoria' }, { text:'relatórios', perm:'relatorios' }, { text:'relatorios', perm:'relatorios' },
   { text:'baixa', perm:'baixa' }, { text:'manutenção', perm:'manutencao' }, { text:'manutencao', perm:'manutencao' },
   { text:'materiais', perm:'materiais' }, { text:'equipamentos', perm:'equipamentos' }, { text:'cadastros', perm:'cadastros' },
+  { text:'transferência filial', perm:'operacao_estoque' }, { text:'transferencia filial', perm:'operacao_estoque' },
+  { text:'retorno filial', perm:'operacao_estoque' },
   { text:'confirmar instalação', perm:'operacao_estoque' }, { text:'confirmar instalacao', perm:'operacao_estoque' }
 ];
 
 const CATEGORIES = [
   { key:'principal', label:'Principal', emoji:'🏠', open:true, ids:[], texts:['dashboard'] },
   { key:'operacao', label:'Operação', emoji:'⚡', open:true, ids:['navOperacaoRapidaClean','navEntradaClean','navEntradaLoteClean','navSaidaClean','navLotesSaidaClean','navDevolucaoClean','navRetornoSemCadastroClean','navConfirmarInstalacao'], texts:['operação rápida','operacao rapida','entrada','entrada em lote','saída','saida','saída em lote','saida em lote','lotes','devolução','devolucao','retorno sem cadastro','confirmar instalação','confirmar instalacao'] },
-  { key:'patrimonio', label:'Patrimônio', emoji:'📦', open:false, ids:['navEquipamentosClean','navHistoricoClean','navManutencaoClean','navBaixaClean'], texts:['equipamentos','histórico','historico','manutenção','manutencao','baixa'] },
+  { key:'patrimonio', label:'Patrimônio', emoji:'📦', open:false, ids:['navEquipamentosClean','navHistoricoClean','navManutencaoClean','navBaixaClean','navTransferenciaFilialClean','navRetornoFilialClean'], texts:['equipamentos','histórico','historico','manutenção','manutencao','baixa','transferência filial','transferencia filial','retorno filial'] },
   { key:'materiais', label:'Materiais', emoji:'🧰', open:false, ids:['navMateriaisClean'], texts:['materiais'] },
   { key:'cadastros', label:'Cadastros', emoji:'📝', open:false, ids:['navTecnicosClean'], texts:['cadastros','técnicos','tecnicos'] },
   { key:'gestao', label:'Gestão', emoji:'📊', open:false, ids:['navRelatoriosClean','navAuditoriaClean','navFechamentoClean','navImpactoFechamentoClean','navAnaliseOperacionalClean'], texts:['relatórios','relatorios','auditoria','fechamento','impacto fechamento','análise operacional','analise operacional'] },
