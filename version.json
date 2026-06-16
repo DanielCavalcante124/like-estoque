@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.43",
+  "version": "1.1.44",
   "release_date": "2026-06-16",
   "environment": "production",
-  "codename": "retorno-filial-estoque-central",
-  "summary": "Criada a tela e a regra oficial de Retorno da filial para Estoque central, permitindo devolver equipamentos em filial para o estoque central sem usar baixa.",
+  "codename": "menu-patrimonio-filial",
+  "summary": "Transferência filial e Retorno filial foram posicionados definitivamente no final da categoria Patrimônio no menu lateral.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -33,23 +33,18 @@
     "fechamento": "5",
     "usuarios": "2",
     "auditoria": "3",
-    "permissoes": "6",
+    "permissoes": "7",
     "relatorios_pdf_js": "7a5",
-    "frontend_change": "clean/retorno_filial.js e index-clean.html",
-    "database_change": "migration retorno_filial_estoque_central_20260616",
-    "validation": "tela retorno_filial carregada no index-clean; regra de retorno da filial para Estoque central criada",
-    "modeling": [
-      "retorno_filial_nao_e_baixa",
-      "status_em_estoque",
-      "local_estoque_central"
-    ],
+    "frontend_change": "clean/permissoes.js e index-clean.html",
+    "database_change": "none",
+    "validation": "Transferência filial e Retorno filial incluídos no grupo Patrimônio e cache-bust de permissoes atualizado para v7",
     "ui": [
-      "retorno_filial_estoque_central"
+      "menu_patrimonio_transferencia_filial",
+      "menu_patrimonio_retorno_filial"
     ],
     "pending": [
       "teste_navegador_transferencia_filial",
       "teste_navegador_retorno_filial",
-      "ajuste_categoria_menu_permissoes_se_necessario",
       "relatorio_patrimonio_por_filial"
     ]
   }
