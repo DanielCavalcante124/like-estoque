@@ -1,10 +1,10 @@
 {
   "app": "LIKE Estoque",
-  "version": "1.1.45",
+  "version": "1.1.46",
   "release_date": "2026-06-16",
   "environment": "production",
-  "codename": "ux-sidebar-fixa-desktop",
-  "summary": "Corrigida a navbar/sidebar no desktop para permanecer fixa na lateral durante o scroll da página, com scroll interno próprio da sidebar.",
+  "codename": "ux-sidebar-fixa-override-final",
+  "summary": "Adicionado override final para manter a sidebar fixa na lateral no desktop durante o scroll da página.",
   "staging_version": "1.2.0-beta.9",
   "local_version": "1.3.0-local.8",
   "modules": {
@@ -35,13 +35,15 @@
     "auditoria": "3",
     "permissoes": "8",
     "styles": "4",
+    "sidebar_fixa": "1",
     "relatorios_pdf_js": "7a5",
-    "frontend_change": "clean/permissoes.js e index-clean.html",
+    "frontend_change": "clean/styles.css, clean/sidebar_fixa.js e index-clean.html",
     "database_change": "none",
-    "validation": "sidebar desktop forçada como fixed no CSS injetado e cache atualizado para styles v4 e permissoes v8",
+    "validation": "sidebar desktop fixa por CSS base e override final carregado depois de permissoes.js; conteúdo principal recebe margem lateral e sidebar possui scroll interno",
     "ui": [
       "sidebar_fixa_desktop",
-      "scroll_interno_sidebar"
+      "scroll_interno_sidebar",
+      "override_final_sidebar"
     ],
     "pending": [
       "teste_navegador_sidebar_scroll_desktop"
